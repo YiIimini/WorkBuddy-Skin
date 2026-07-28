@@ -19,7 +19,7 @@ class StatusCard: NSView {
     let valueLabel = NSTextField(labelWithString: "")
     init(title: String) {
         super.init(frame: .zero)
-        wantsLayer = true; layer?.backgroundColor = NSColor.bgCard.cgColor
+        wantsLayer = true; layer?.backgroundColor = NSColor(srgbRed: 0.08, green: 0.05, blue: 0.12, alpha: 0.6).cgColor
         layer?.cornerRadius = 10; layer?.borderWidth = 1
         layer?.borderColor = NSColor.accentPink.withAlphaComponent(0.15).cgColor
         titleLabel.stringValue = title
@@ -69,12 +69,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func createWindow() {
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 760, height: 820), styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 760, height: 820), styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.title = "WorkBuddy-Skin"; window.titlebarAppearsTransparent = true; window.center()
         window.appearance = NSAppearance(named: .darkAqua)
+        window.isMovableByWindowBackground = true
 
-        let root = NSView(); root.wantsLayer = true; root.layer?.backgroundColor = NSColor.bgDark.cgColor
-        window.contentView = root
+        // 流体玻璃背景
+        let blurView = NSVisualEffectView()
+        blurView.blendingMode = .behindWindow
+        blurView.material = .hudWindow
+        blurView.state = .active
+        window.contentView = blurView
+
+        let root = NSView()
+        blurView.addSubview(root)
+        root.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            root.topAnchor.constraint(equalTo: blurView.topAnchor),
+            root.leadingAnchor.constraint(equalTo: blurView.leadingAnchor),
+            root.trailingAnchor.constraint(equalTo: blurView.trailingAnchor),
+            root.bottomAnchor.constraint(equalTo: blurView.bottomAnchor)
+        ])
 
         let main = NSStackView(); main.orientation = .vertical; main.spacing = 14
         main.edgeInsets = NSEdgeInsets(top: 16, left: 24, bottom: 16, right: 24)
@@ -104,7 +119,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 预览
         previewView = NSView(); previewView.wantsLayer = true
-        previewView.layer?.backgroundColor = NSColor.bgCard.cgColor; previewView.layer?.cornerRadius = 10
+        previewView.layer?.backgroundColor = NSColor(srgbRed: 0.08, green: 0.05, blue: 0.12, alpha: 0.5).cgColor; previewView.layer?.cornerRadius = 10
         previewView.layer?.borderWidth = 1; previewView.layer?.borderColor = NSColor.accentPink.withAlphaComponent(0.12).cgColor
         previewView.heightAnchor.constraint(equalToConstant: 50).isActive = true
         main.addArrangedSubview(previewView)
