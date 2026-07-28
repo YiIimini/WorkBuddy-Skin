@@ -66,15 +66,23 @@ on startWorkBuddyPlus()
 	delay 2
 
 	-- 启动 WorkBuddy + 守护进程
-	do shell script "bash /Users/x/Documents/WorkBuddy/WorkBuddy+/launcher.sh > /dev/null 2>&1 &"
+	do shell script "bash /Users/x/Documents/WorkBuddy/WorkBuddy+/launcher.sh > /tmp/workbuddy-plus-launch.log 2>&1 &"
 
 	display notification "WorkBuddy+ 正在启动..." with title "WorkBuddy+" sound name "Glass"
 
-	delay 5
+	-- 等待 WorkBuddy 启动（最多 30 秒）
+	set maxWait to 30
+	set waited to 0
+	set cdpRunning to false
+
+	repeat while waited < maxWait and not cdpRunning
+		delay 1
+		set waited to waited + 1
+		set cdpRunning to checkPort(9222)
+	end repeat
 
 	-- 检查启动状态
 	set daemonRunning to checkPort(17890)
-	set cdpRunning to checkPort(9222)
 
 	set resultText to "守护进程: "
 	if daemonRunning then
@@ -92,9 +100,9 @@ on startWorkBuddyPlus()
 
 	if daemonRunning and cdpRunning then
 		display notification "WorkBuddy+ 启动成功！背景已注入" with title "WorkBuddy+" sound name "Glass"
-		display dialog "WorkBuddy+ 启动成功！" & return & return & resultText buttons {"完成"} default button 1 with icon note
+		display dialog "WorkBuddy+ 启动成功！" & return & return & resultText & return & return & "等待时间: " & waited & " 秒" buttons {"完成"} default button 1 with icon note
 	else
-		display dialog "启动可能未完成" & return & return & resultText buttons {"确定"} default button 1 with icon caution
+		display dialog "启动可能未完成" & return & return & resultText & return & return & "请查看日志: /tmp/workbuddy-plus-launch.log" buttons {"确定"} default button 1 with icon caution
 	end if
 end startWorkBuddyPlus
 
