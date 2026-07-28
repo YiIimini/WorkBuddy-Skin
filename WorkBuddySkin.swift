@@ -145,21 +145,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         filePathLabel.alignment = .center; filePathLabel.lineBreakMode = .byTruncatingMiddle
         main.addArrangedSubview(filePathLabel)
 
-        // 启动按钮 + 自动配色 + 取色板
-        let ctrlRow = NSStackView(); ctrlRow.spacing = 10
+        // 启动按钮 + 自动配色
+        let ctrlRow = NSStackView(); ctrlRow.spacing = 10; ctrlRow.distribution = .fillEqually
         startButton = makeBtn("启动背景", "play.rectangle", #selector(toggleBackground))
         ctrlRow.addArrangedSubview(startButton)
         autoTextBtn = makeBtn("文字自动配色", "checkmark.square.fill", #selector(autoTextToggled))
         ctrlRow.addArrangedSubview(autoTextBtn)
+        main.addArrangedSubview(ctrlRow)
+
+        // 取色板（独立行）
+        let wellRow = NSStackView(); wellRow.spacing = 8
         textColorWell = NSColorWell(); textColorWell.color = .white; textColorWell.isEnabled = false
         textColorWell.target = self; textColorWell.action = #selector(updateConfig)
         textColorWell.widthAnchor.constraint(equalToConstant: 40).isActive = true
-        ctrlRow.addArrangedSubview(textColorWell)
-        let hint = NSTextField(labelWithString: "选色后自动关闭自动配色")
-        hint.font = NSFont.systemFont(ofSize: 10); hint.textColor = .textHint
-        ctrlRow.addArrangedSubview(hint)
-        ctrlRow.setCustomSpacing(0, after: textColorWell)
-        main.addArrangedSubview(ctrlRow)
+        wellRow.addArrangedSubview(textColorWell)
+        let hint = NSTextField(labelWithString: "选色后自动关闭文字自动配色")
+        hint.font = NSFont.systemFont(ofSize: 11); hint.textColor = .textHint
+        wellRow.addArrangedSubview(hint)
+        main.addArrangedSubview(wellRow)
 
         // 四个下拉
         let d1 = hstack([
@@ -177,17 +180,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         positionPopup = d2.arrangedSubviews[1] as? NSPopUpButton
         main.addArrangedSubview(d2)
 
-        // 滑块
-        let sl = hstack([sliderView("背景透明度", 10, 100, 100),
-                        sliderView("背景暗色遮罩", 0, 80, 50)], equalWidth: true)
-        opacitySlider = (sl.arrangedSubviews[0] as! NSStackView).arrangedSubviews[1] as? NSSlider
-        opacityValueLabel = (sl.arrangedSubviews[0] as! NSStackView).arrangedSubviews[2] as? NSTextField
-        overlaySlider = (sl.arrangedSubviews[1] as! NSStackView).arrangedSubviews[1] as? NSSlider
-        overlayValueLabel = (sl.arrangedSubviews[1] as! NSStackView).arrangedSubviews[2] as? NSTextField
-        main.addArrangedSubview(sl)
+        // 滑块 - 各占一行
+        let sv1 = sliderView("背景透明度", 10, 100, 100) as! NSStackView
+        opacitySlider = sv1.arrangedSubviews[1] as? NSSlider
+        opacityValueLabel = sv1.arrangedSubviews[2] as? NSTextField
+        main.addArrangedSubview(sv1)
+
+        let sv2 = sliderView("背景暗色遮罩", 0, 80, 50) as! NSStackView
+        overlaySlider = sv2.arrangedSubviews[1] as? NSSlider
+        overlayValueLabel = sv2.arrangedSubviews[2] as? NSTextField
+        main.addArrangedSubview(sv2)
 
         // ══ 快速操作 ══
-        main.setCustomSpacing(20, after: sl)
+        main.setCustomSpacing(20, after: sv2)
         main.addArrangedSubview(sectionHeader("快速操作"))
         let qRow = hstack([
             { injectButton = $0; return $0 }(makeBtn("CDP 注入启动", "bolt.fill", #selector(startWorkBuddy))),
@@ -239,7 +244,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let p = NSPopUpButton(); p.addItems(withTitles: items); p.font = NSFont.systemFont(ofSize: 11)
         p.target = self; p.action = #selector(updateConfig); return p
     }
-    func sliderView(_ title: String, _ min: Double, _ max: Double, _ initVal: Double) -> NSView {
+    func sliderView(_ title: String, _ min: Double, _ max: Double, _ initVal: Double) -> NSStackView {
         let v = NSStackView(); v.spacing = 6
         let l = NSTextField(labelWithString: title); l.font = NSFont.systemFont(ofSize: 11); l.textColor = .textLabel
         v.addArrangedSubview(l)
