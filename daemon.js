@@ -104,12 +104,26 @@ function saveConfig(cfg) {
   try {
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
     log('config', `已保存: ${cfg.type} ${cfg.source || '(无)'}`);
+    // 配置保存后立即推送到页面
+    pushConfigToPage();
     return true;
   } catch (e) {
     log('config', `写入失败: ${e.message}`);
     return false;
   }
 }
+
+// 监听配置文件变化
+fs.watch(CONFIG_PATH, (eventType) => {
+  if (eventType === 'change') {
+    log('config', '配置文件已修改，重新加载...');
+    const newConfig = loadConfig();
+    if (JSON.stringify(newConfig) !== JSON.stringify(config)) {
+      config = newConfig;
+      pushConfigToPage();
+    }
+  }
+});
 
 // 初始化配置（在 DEFAULT_CONFIG 定义之后）
 let config = loadConfig();
@@ -202,9 +216,11 @@ function buildInjectScript() {
     overlay.style.background = 'rgba(0,0,0,' + (cfg.overlay != null ? cfg.overlay : 0.25) + ')';
 
     var src = DAEMON + '/api/file?path=' + encodeURIComponent(cfg.source);
+    console.log('[wb-bg] 设置媒体源:', src);
 
     var needNew = !bgMedia || bgMedia.tagName.toLowerCase() !== (cfg.type === 'video' ? 'video' : 'img');
     if (needNew) {
+      console.log('[wb-bg] 创建新媒体元素:', cfg.type);
       if (bgMedia) bgMedia.remove();
       if (cfg.type === 'video') {
         bgMedia = document.createElement('video');
@@ -221,9 +237,31 @@ function buildInjectScript() {
     }
 
     if (bgMedia.tagName.toLowerCase() === 'video') {
-      if (bgMedia.src !== src) { bgMedia.src = src; bgMedia.load(); bgMedia.play().catch(function(){}); }
+      if (bgMedia.src !== src) {
+        console.log('[wb-bg] 加载视频:', src);
+        bgMedia.src = src;
+        bgMedia.load();
+        bgMedia.play().then(function() {
+          console.log('[wb-bg] 视频播放成功');
+        }).catch(function(e) {
+          console.error('[wb-bg] 视频播放失败:', e);
+        });
+        bgMedia.onerror = function(e) {
+          console.error('[wb-bg] 视频加载错误:', e, bgMedia.error);
+        };
+        bgMedia.onloadeddata = function() {
+          console.log('[wb-bg] 视频数据已加载');
+        };
+      }
     } else {
+      console.log('[wb-bg] 加载图片:', src);
       bgMedia.src = src;
+      bgMedia.onload = function() {
+        console.log('[wb-bg] 图片加载成功');
+      };
+      bgMedia.onerror = function(e) {
+        console.error('[wb-bg] 图片加载失败:', e);
+      };
     }
     bgMedia.style.objectFit = cfg.scale || 'cover';
     bgMedia.style.objectPosition = cfg.position || 'center';
@@ -246,23 +284,11 @@ function buildInjectScript() {
   }
   insertLayer();
 
-  function pollConfig() {
-    try {
-      fetch(DAEMON + '/api/config?t=' + Date.now())
-        .then(function(r) { return r.json(); })
-        .then(function(cfg) {
-          console.log('[wb-bg] 配置已更新:', cfg);
-          applyConfig(cfg);
-        })
-        .catch(function(e) {
-          console.warn('[wb-bg] 配置获取失败:', e);
-        });
-    } catch (e) {
-      console.error('[wb-bg] 配置轮询错误:', e);
-    }
-  }
-  setInterval(pollConfig, 2000);
-  pollConfig();
+  // 暴露配置应用函数供 CDP 调用
+  window.__wbBgApplyConfig = function(cfg) {
+    console.log('[wb-bg] 收到配置推送:', cfg);
+    applyConfig(cfg);
+  };
 
   var observer = new MutationObserver(function() {
     if (!document.getElementById('wb-bg-layer')) insertLayer();
@@ -309,6 +335,9 @@ async function connectCDP() {
     });
     log('cdp', '背景脚本已注入当前页面');
 
+    // 注入后立即推送当前配置
+    await pushConfigToPage();
+
     reconnectAttempts = 0; // 重置重连计数
 
     cdpClient.on('disconnected', () => {
@@ -321,6 +350,25 @@ async function connectCDP() {
   } catch (e) {
     log('cdp', `连接失败: ${e.message}`);
     return false;
+  }
+}
+
+// 推送配置到页面
+async function pushConfigToPage() {
+  if (!cdpClient) return;
+
+  try {
+    const configJson = JSON.stringify(config);
+    await cdpClient.Runtime.evaluate({
+      expression: `
+        if (window.__wbBgApplyConfig) {
+          window.__wbBgApplyConfig(${configJson});
+        }
+      `,
+    });
+    log('cdp', '配置已推送到页面');
+  } catch (e) {
+    log('cdp', `配置推送失败: ${e.message}`);
   }
 }
 
@@ -515,6 +563,7 @@ server = http.createServer(async (req, res) => {
             var overlay = document.getElementById('wb-bg-overlay');
             var style = document.getElementById('wb-bg-transparent-css');
             var root = document.getElementById('root') || document.getElementById('app');
+            var media = bgLayer ? bgLayer.querySelector('video, img') : null;
 
             return {
               injected: !!window.__wbBgInjected,
@@ -524,9 +573,18 @@ server = http.createServer(async (req, res) => {
               bgLayerDisplay: bgLayer ? getComputedStyle(bgLayer).display : null,
               bgLayerZIndex: bgLayer ? getComputedStyle(bgLayer).zIndex : null,
               bgLayerOpacity: bgLayer ? getComputedStyle(bgLayer).opacity : null,
+              bgLayerChildren: bgLayer ? bgLayer.children.length : 0,
               rootBackground: root ? getComputedStyle(root).background : null,
               bodyBackground: getComputedStyle(document.body).background,
-              mediaSrc: bgLayer && bgLayer.querySelector('video, img') ? bgLayer.querySelector('video, img').src : null,
+              mediaExists: !!media,
+              mediaTag: media ? media.tagName : null,
+              mediaSrc: media ? media.src : null,
+              mediaReadyState: media && media.tagName === 'VIDEO' ? media.readyState : null,
+              mediaError: media && media.tagName === 'VIDEO' && media.error ? {
+                code: media.error.code,
+                message: media.error.message
+              } : null,
+              mediaPaused: media && media.tagName === 'VIDEO' ? media.paused : null,
             };
           })()
         `,
