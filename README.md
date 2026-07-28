@@ -11,7 +11,8 @@
 - **设置面板**：Web 界面，实时预览，即时生效
 - **毛玻璃效果**：WorkBuddy 面板自动变半透明，透出背景
 - **托盘守护**：常驻后台，自动监控和注入，开机自启（可选）
-- **独立控制**：控制器应用，一键启动/设置，无需命令行
+- **独立应用**：WorkBuddy+.app 一键启动/设置，无需命令行
+- **DMG 安装**：标准 macOS 安装包，拖拽安装
 
 ## 架构
 
@@ -45,15 +46,33 @@
 
 ### 前置要求
 
-- macOS（Apple Silicon / Intel）
+- macOS 11.0 或更高版本（Apple Silicon / Intel）
 - WorkBuddy 已安装在 `/Applications/WorkBuddy.app`
-- Node.js（项目使用 WorkBuddy 自带的 managed Node.js）
 
-### 安装
+### 方式 1：DMG 安装包（推荐）
+
+1. **下载 DMG**：
+   - 从 [Releases](https://github.com/YiIimini/workbuddy-bg-injector/releases) 下载 `WorkBuddy+-v2.0.dmg`
+
+2. **安装**：
+   - 双击打开 DMG 文件
+   - 将 `WorkBuddy+.app` 拖拽到 `Applications` 文件夹
+   - 弹出 DMG
+
+3. **首次运行**：
+   - 打开 `Applications/WorkBuddy+.app`
+   - 如果提示"未受信任的开发者"，前往 **系统设置 → 隐私与安全性 → 仍要打开**
+
+4. **使用**：
+   - **第 1 步**：打开 Web 管理（选择背景图片/视频）
+   - **第 2 步**：启动源程序并注入（自动重启 WorkBuddy）
+   - **第 3 步**：退出
+
+### 方式 2：从源码安装
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/jianjiandebuhao555/workbuddy-bg-injector.git
+git clone https://github.com/YiIimini/workbuddy-bg-injector.git
 cd workbuddy-bg-injector
 
 # 2. 安装依赖（chrome-remote-interface）
@@ -66,34 +85,17 @@ bash launcher.sh
 
 ### 使用
 
-#### 方式 1：独立控制器（推荐）
+#### 方式 1：WorkBuddy+.app（推荐）
 
-**首次使用：**
-```bash
-# 启动托盘守护进程
-bash start-tray.sh
-```
-
-**日常使用：**
-1. 双击 `~/Applications/WorkBuddy+ Controller.app`
-2. 选择操作：
-   - **启动 WorkBuddy+** — 一键启动 WorkBuddy（带 CDP）+ 守护进程
-   - **设置背景...** — 选择图片/视频文件
-   - **打开 Web 设置面板** — 访问 http://localhost:17890
-   - **查看状态** — 检查运行状态
-
-**开机自启（可选）：**
-```bash
-# 加载 LaunchAgent
-launchctl load ~/Library/LaunchAgents/com.workbuddy.plus.tray.plist
-
-# 卸载
-launchctl unload ~/Library/LaunchAgents/com.workbuddy.plus.tray.plist
-```
+1. 双击 `Applications/WorkBuddy+.app`
+2. 按三步流程操作：
+   - **打开 Web 管理** — 选择背景文件，调整效果
+   - **启动源程序并注入** — 自动重启 WorkBuddy 并应用背景
+   - **退出** — 完成
 
 #### 方式 2：Web 设置面板
 
-1. **启动**：双击 `~/Applications/WorkBuddy+.app`，或终端运行 `bash launcher.sh`
+1. **启动**：双击 `WorkBuddy+.app`，选择「打开 Web 管理」
 2. **设置**：浏览器自动打开 `http://localhost:17890`
 3. **选择背景**：点击「浏览…」选择图片或视频文件
 4. **调节效果**：拖动滑块实时预览
@@ -114,9 +116,18 @@ bash set-background.sh /path/to/video.mp4
 cat config.json
 ```
 
-#### 方式 4：直接编辑配置文件
+#### 方式 5：直接编辑配置文件
 
 编辑 `config.json`，保存后自动生效（无需重启）。
+
+**开机自启（可选）：**
+```bash
+# 加载 LaunchAgent
+launchctl load ~/Library/LaunchAgents/com.workbuddy.plus.tray.plist
+
+# 卸载
+launchctl unload ~/Library/LaunchAgents/com.workbuddy.plus.tray.plist
+```
 
 ### 启动器命令
 
@@ -176,13 +187,22 @@ bg-injector/
 
 **系统级集成：**
 ```
+/Applications/
+└── WorkBuddy+.app                   # 主应用（DMG 安装，三步流程操作）
+
 ~/Applications/
-├── WorkBuddy+.app                   # 启动器（退出旧 WorkBuddy → 带 CDP 重启）
-├── WorkBuddy+ Controller.app        # 控制器（菜单操作面板）
 └── 设为 WorkBuddy 背景.app           # 拖拽应用（拖文件到图标设置背景）
 
 ~/Library/LaunchAgents/
 └── com.workbuddy.plus.tray.plist    # 开机自启配置（可选）
+```
+
+**DMG 安装包：**
+```
+WorkBuddy+-v2.0.dmg                  # macOS 安装包（拖拽安装）
+├── WorkBuddy+.app                   # 主应用
+├── Applications -> /Applications    # 快捷方式
+└── README.txt                       # 安装说明
 ```
 
 ## 工作原理
