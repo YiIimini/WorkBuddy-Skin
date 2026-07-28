@@ -75,6 +75,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var blurPopup: NSPopUpButton!
     var scalePopup: NSPopUpButton!
     var positionPopup: NSPopUpButton!
+    var textColorPopup: NSPopUpButton!
     var fileLabel: NSTextField!
 
     var previewView: NSView!
@@ -123,7 +124,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         var y: CGFloat = H - p - 10
 
         // ── 标题 ──
-        let titleLabel = makeLabel("WorkBuddy-Skin 背景注入管理器 v2.2", size: 22, bold: true, color: .textTitle)
+        let titleLabel = makeLabel("WorkBuddy-Skin 背景注入管理器 v2.3", size: 22, bold: true, color: .textTitle)
         titleLabel.alignment = .center
         titleLabel.frame = NSRect(x: p, y: y - 30, width: W - p*2, height: 28)
         bg.addSubview(titleLabel)
@@ -200,6 +201,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         bg.addSubview(positionPopup)
         positionPopup.target = self
         positionPopup.action = #selector(updateConfig)
+        y -= 36
+
+        // 文字颜色
+        textColorPopup = makePopupCompact(items: ["文字: 默认", "文字: 白色 #fff", "文字: 浅灰 #ccc", "文字: 黑色 #000"], frame: NSRect(x: p, y: y - 26, width: popupW, height: 26))
+        bg.addSubview(textColorPopup)
+        textColorPopup.target = self
+        textColorPopup.action = #selector(updateConfig)
         y -= 36
 
         // 透明度 + 暗色遮罩度（一行两个滑块）
@@ -495,6 +503,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         currentConfig["scale"] = scaleValues[scalePopup.indexOfSelectedItem]
         let positionValues = ["center", "top", "bottom", "left", "right"]
         currentConfig["position"] = positionValues[positionPopup.indexOfSelectedItem]
+
+        let textColorValues = ["", "#ffffff", "#cccccc", "#000000"]
+        currentConfig["textColor"] = textColorValues[textColorPopup.indexOfSelectedItem]
+
         // 更新启动按钮文字
         startButton.title = enabledCheckbox.state == .on ? "⏹️ 停止背景（支持图片 JPG/PNG/GIF、视频 MP4/MOV/WebM）" : "🎬 启动背景（支持图片 JPG/PNG/GIF、视频 MP4/MOV/WebM）"
         saveConfig()
@@ -523,6 +535,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if let scale = json["scale"] as? String, let idx = scaleValues.firstIndex(of: scale) { self.scalePopup.selectItem(at: idx) }
                 let positionValues = ["center", "top", "bottom", "left", "right"]
                 if let pos = json["position"] as? String, let idx = positionValues.firstIndex(of: pos) { self.positionPopup.selectItem(at: idx) }
+                let textColorValues = ["", "#ffffff", "#cccccc", "#000000"]
+                if let tc = json["textColor"] as? String, let idx = textColorValues.firstIndex(of: tc) { self.textColorPopup.selectItem(at: idx) }
                 self.updateConfig()
                 self.refreshStatus()
             }

@@ -6,5 +6,6 @@
   "overlay": 0.5,
   "blur": "0px",
   "scale": "cover",
-  "position": "center"
+  "position": "center",
+  "textColor": ""
 }

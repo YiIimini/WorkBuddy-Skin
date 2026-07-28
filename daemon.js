@@ -66,6 +66,7 @@ const DEFAULT_CONFIG = {
   blur: '0px',
   scale: 'cover',
   position: 'center',
+  textColor: '',
 };
 
 function validateConfig(cfg) {
@@ -142,96 +143,67 @@ function buildInjectScript() {
   var currentFileUri = null;
   var lastMediaSrc = null;
 
-  // CSS — 精准策略：覆盖所有容器元素，保留表单和 UI 组件
-  var cssText = [
-    // === 所有容器元素强制透明 ===
-    'html, body { background: transparent !important; background-color: transparent !important; }',
-    'div, section, main, article, header, footer, nav, aside, ul, ol, li {',
-    '  background-color: transparent !important;',
-    '  background-image: none !important;',
-    '  background: transparent !important;',
-    '}',
-    // span 和 p 也透明
-    'span, p { background-color: transparent !important; }',
-    // 全局文字可读性：白色文字 + 黑色阴影，在任何背景上都可读
-    'body, div, span, p, a, li, label, h1, h2, h3, h4, h5, h6, td, th {',
-    '  text-shadow: 0 0 4px rgba(0,0,0,0.7), 0 1px 2px rgba(0,0,0,0.5) !important;',
-    '}',
-    // 图标和特殊元素不需要文字阴影
-    'svg, path, [class*="icon"], [class*="Icon"] { text-shadow: none !important; }',
+  // CSS — 双模式：启用背景时才透明化，未启用保持 WorkBuddy 原样
+  var cssNeutral = [
+    // 未启用时：仅轻微的侧边栏优化
+    '[data-view-id=sidebar] {',
+    '  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);',
+    '}'
+  ].join('\\n');
 
-    // === 例外：UI 组件需要背景保持可读性 ===
-    // 侧边栏 - 加强毛玻璃，提高可读性
-    '[data-view-id=sidebar], [data-view-id=sidebar] div, [data-view-id=sidebar] span {',
-    '  background: rgba(12,8,20,0.60) !important;',
-    '  background-color: rgba(12,8,20,0.60) !important;',
-    '  backdrop-filter: blur(24px) saturate(1.3) !important;',
-    '  -webkit-backdrop-filter: blur(24px) saturate(1.3) !important;',
-    '}',
-    // 侧边栏文字强制白色，提高可读性
-    '[data-view-id=sidebar] *, [data-view-id=sidebar] {',
-    '  color: #ffffff !important;',
-    '  text-shadow: 0 1px 3px rgba(0,0,0,0.5) !important;',
-    '}',
-    // 详情面板
-    '[data-view-id=detail-panel] {',
-    '  background: rgba(12,8,20,0.55) !important;',
-    '  background-color: rgba(12,8,20,0.55) !important;',
-    '  backdrop-filter: blur(22px) !important;',
-    '  -webkit-backdrop-filter: blur(22px) !important;',
-    '}',
-    // 聊天输入区
-    '.atm-modal-chat-input, .atm-modal-chat-input div {',
-    '  background: rgba(12,8,20,0.45) !important;',
-    '  background-color: rgba(12,8,20,0.45) !important;',
-    '  backdrop-filter: blur(18px) !important;',
-    '  -webkit-backdrop-filter: blur(18px) !important;',
-    '}',
-    // 菜单/下拉
-    '[role=listbox], [role=menu], .monaco-menu, [role=dialog] {',
-    '  background: rgba(12,8,20,0.65) !important;',
-    '  background-color: rgba(12,8,20,0.65) !important;',
-    '  backdrop-filter: blur(16px) !important;',
-    '  -webkit-backdrop-filter: blur(16px) !important;',
-    '}',
-    // 表单元素恢复默认
+  var cssActivated = [
+    'html, body { background: transparent !important; background-color: transparent !important; }',
+    'div, section, main, article, header, footer, nav, aside, ul, ol, li { background-color: transparent !important; background-image: none !important; background: transparent !important; }',
+    'span, p { background-color: transparent !important; }',
+    // 文字阴影
+    'body, div, span, p, a, li, label { text-shadow: 0 0 3px rgba(0,0,0,0.6), 0 1px 2px rgba(0,0,0,0.4) !important; }',
+    'svg, [class*="icon"] { text-shadow: none !important; }',
+    // UI 组件毛玻璃
+    '[data-view-id=sidebar], [data-view-id=sidebar] div, [data-view-id=sidebar] span { background: rgba(12,8,20,0.60) !important; backdrop-filter: blur(24px) saturate(1.3) !important; -webkit-backdrop-filter: blur(24px) saturate(1.3) !important; color: #fff !important; text-shadow: 0 1px 3px rgba(0,0,0,0.5) !important; }',
+    '[data-view-id=detail-panel] { background: rgba(12,8,20,0.55) !important; backdrop-filter: blur(22px) !important; -webkit-backdrop-filter: blur(22px) !important; }',
+    '.atm-modal-chat-input, .atm-modal-chat-input div { background: rgba(12,8,20,0.45) !important; backdrop-filter: blur(18px) !important; -webkit-backdrop-filter: blur(18px) !important; }',
+    '[role=listbox], [role=menu], .monaco-menu, [role=dialog] { background: rgba(12,8,20,0.65) !important; backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important; }',
     'input, textarea, select, button { background: revert !important; background-color: revert !important; background-image: revert !important; }',
-    // 代码区
-    'pre, code, [class*="monaco"], [class*="editor"], [class*="code"] { background: revert !important; background-color: revert !important; }',
-    // 设置页面的模态遮罩 — 改为半透明毛玻璃
-    '[class*="settings-modal-overlay"], [class*="modal-overlay"], [class*="ModalOverlay"] {',
-    '  background: rgba(10,5,20,0.40) !important;',
-    '  background-color: rgba(10,5,20,0.40) !important;',
-    '  backdrop-filter: blur(10px) !important;',
-    '  -webkit-backdrop-filter: blur(10px) !important;',
-    '}',
-    // 背景层不受影响
+    'pre, code, [class*="monaco"], [class*="editor"] { background: revert !important; background-color: revert !important; }',
+    '[class*="settings-modal-overlay"], [class*="modal-overlay"] { background: rgba(10,5,20,0.40) !important; backdrop-filter: blur(10px) !important; -webkit-backdrop-filter: blur(10px) !important; }',
     '#wb-bg-layer { background: #000 !important; }',
     '#wb-bg-overlay { background: rgba(0,0,0,0) !important; }'
   ].join('\\n');
 
-  var cssStyleEl = null;
+  function buildTextColorCSS(tc) {
+    if (!tc) return '';
+    return 'body, div, span, p, a, li, label, h1, h2, h3, h4, h5, h6, th, td { color: ' + tc + ' !important; }';
+  }
 
-  // 每 30 帧（0.5 秒）重建 CSS，确保始终是最后一个样式表
+  var cssStyleEl = null;
   var cssRebuildCounter = 0;
+  var lastEnabled = null;
 
   function ensureCSS() {
-    // 每 30 帧强制重建（删除+重新创建），确保我们是最后加载的样式表
-    cssRebuildCounter++;
-    var fullRebuild = (cssRebuildCounter % 30 === 0);
+    var enabled = !!(currentConfig && currentConfig.enabled && currentConfig.source);
+    var textColor = (currentConfig && currentConfig.textColor) || '';
 
-    if (fullRebuild && cssStyleEl && cssStyleEl.parentNode) {
+    // 只有当启用状态改变时才重建 CSS
+    if (lastEnabled !== enabled) {
+      if (cssStyleEl && cssStyleEl.parentNode) cssStyleEl.remove();
+      cssStyleEl = null;
+      lastEnabled = enabled;
+    }
+
+    // 每 30 帧强制重建确保始终排最后
+    cssRebuildCounter++;
+    if (cssRebuildCounter % 30 === 0 && cssStyleEl && cssStyleEl.parentNode) {
       cssStyleEl.remove();
       cssStyleEl = null;
     }
 
     if (!cssStyleEl || !cssStyleEl.parentNode) {
+      var css = enabled ? (cssActivated + '\\n' + buildTextColorCSS(textColor)) : cssNeutral;
       cssStyleEl = document.createElement('style');
       cssStyleEl.id = 'wb-bg-css';
-      cssStyleEl.textContent = cssText;
+      cssStyleEl.textContent = css;
       (document.head || document.documentElement).appendChild(cssStyleEl);
     } else if (document.head && cssStyleEl.parentNode === document.head && document.head.lastChild !== cssStyleEl) {
-      // 每次移动到最后
       document.head.appendChild(cssStyleEl);
     }
   }
@@ -335,6 +307,8 @@ function buildInjectScript() {
   }
 
   function forceTransparentAll() {
+    // 只在启用背景时才强制透明
+    if (!currentConfig || !currentConfig.enabled || !currentConfig.source) return;
     try {
       if (document.body) {
         var children = document.body.children;
@@ -662,6 +636,7 @@ server = http.createServer(async (req, res) => {
       try {
         const newCfg = JSON.parse(body);
         if (saveConfig(newCfg)) {
+          pushConfigToPage(); // 即时推送
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true }));
         } else {
