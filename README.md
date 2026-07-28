@@ -40,6 +40,24 @@ WorkBuddy (Electron)                 ← 目标应用
 - WorkBuddy 已安装
 - 首次运行需授予辅助功能权限
 
+## 社交媒体
+
+[![抖音](https://github.com/YiIimini/Mineradio-MacOS/raw/main/public/xc/dy.png)](https://www.douyin.com/user/yiilimini)
+
+抖音 · 开发者动态 & 更新预告
+
+## 打赏支持
+
+如果 WorkBuddy-Skin 让你的 WorkBuddy 更好看了，欢迎请开发者喝杯咖啡 ☕
+
+[![微信赞赏](https://github.com/YiIimini/Mineradio-MacOS/raw/main/public/ds/wechat-pay.jpg)](https://github.com/YiIimini/Mineradio-MacOS/blob/main/public/ds/wechat-pay.jpg)
+
+微信赞赏
+
+[![支付宝](https://github.com/YiIimini/Mineradio-MacOS/raw/main/public/ds/alipay.png)](https://github.com/YiIimini/Mineradio-MacOS/blob/main/public/ds/alipay.png)
+
+支付宝
+
 ## 项目
 
 https://github.com/YiIimini/WorkBuddy-Skin
