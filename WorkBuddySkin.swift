@@ -124,11 +124,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(openItem)
         menu.addItem(NSMenuItem.separator())
 
-        let injectItem = NSMenuItem(title: "🔌 CDP 注入启动", action: #selector(menuStartWorkBuddy), keyEquivalent: "")
+        let injectItem = NSMenuItem(title: "CDP 注入启动", action: #selector(menuStartWorkBuddy), keyEquivalent: "")
         injectItem.target = self
         menu.addItem(injectItem)
 
-        let toggleBgItem = NSMenuItem(title: "🎬 启用背景", action: #selector(menuToggleBackground), keyEquivalent: "")
+        let toggleBgItem = NSMenuItem(title: "启用背景", action: #selector(menuToggleBackground), keyEquivalent: "")
         toggleBgItem.target = self
         toggleBgItem.tag = 100
         menu.addItem(toggleBgItem)
@@ -147,7 +147,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(statusMenuItem)
         menu.addItem(NSMenuItem.separator())
 
-        let refreshItem = NSMenuItem(title: "🔄 刷新状态", action: #selector(menuRefreshStatus), keyEquivalent: "")
+        let refreshItem = NSMenuItem(title: "刷新状态", action: #selector(menuRefreshStatus), keyEquivalent: "")
         refreshItem.target = self
         menu.addItem(refreshItem)
         menu.addItem(NSMenuItem.separator())
@@ -225,7 +225,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         y = addSection("背景设置", x: p, y: y, w: W - p*2, view: bg)
 
         // 文件目录
-        fileLabel = makeLabel("📄 未选择文件", size: 13, bold: false, color: .textLabel)
+        fileLabel = makeLabel("未选择文件", size: 13, bold: false, color: .textLabel)
         fileLabel.lineBreakMode = .byTruncatingTail
         fileLabel.frame = NSRect(x: p, y: y - 18, width: W - p*2, height: 16)
         bg.addSubview(fileLabel)
@@ -235,8 +235,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let btnW = (W - p*2 - gap) / 2
         let btnH: CGFloat = 34
 
-        selectFileButton = makeButton("📁 选择文件", frame: NSRect(x: p, y: y - btnH, width: btnW, height: btnH), action: #selector(selectFile))
-        clearButton = makeButton("🗑️ 清除背景", frame: NSRect(x: p + btnW + gap, y: y - btnH, width: btnW, height: btnH), action: #selector(clearBackground))
+        selectFileButton = makeButton("选择文件", symbol: "folder", frame: NSRect(x: p, y: y - btnH, width: btnW, height: btnH), action: #selector(selectFile))
+        clearButton = makeButton("清除背景", symbol: "trash", frame: NSRect(x: p + btnW + gap, y: y - btnH, width: btnW, height: btnH), action: #selector(clearBackground))
         bg.addSubview(selectFileButton)
         bg.addSubview(clearButton)
         y -= btnH + 14
@@ -266,7 +266,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         y -= previewHeight + 14
 
         // 启动背景按钮 + 文件类型说明
-        startButton = makeButton("🎬 启动背景（支持图片 JPG/PNG/GIF、视频 MP4/MOV/WebM）", frame: NSRect(x: p, y: y - btnH, width: W - p*2, height: btnH), action: #selector(toggleBackground))
+        startButton = makeButton("启动背景", symbol: "play.rectangle", frame: NSRect(x: p, y: y - btnH, width: W - p*2, height: btnH), action: #selector(toggleBackground))
         bg.addSubview(startButton)
         y -= btnH + 14
 
@@ -337,8 +337,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // ━━ 快速操作 ━━
         y = addSection("快速操作", x: p, y: y, w: W - p*2, view: bg)
 
-        injectButton = makeButton("🔌 CDP 注入启动", frame: NSRect(x: p, y: y - btnH, width: btnW, height: btnH), action: #selector(startWorkBuddy))
-        let refreshButton = makeButton("🔄 刷新状态", frame: NSRect(x: p + btnW + gap, y: y - btnH, width: btnW, height: btnH), action: #selector(refreshStatus))
+        injectButton = makeButton("CDP 注入启动", symbol: "bolt.fill", frame: NSRect(x: p, y: y - btnH, width: btnW, height: btnH), action: #selector(startWorkBuddy))
+        let refreshButton = makeButton("刷新状态", symbol: "arrow.clockwise", frame: NSRect(x: p + btnW + gap, y: y - btnH, width: btnW, height: btnH), action: #selector(refreshStatus))
         bg.addSubview(injectButton)
         bg.addSubview(refreshButton)
         y -= btnH + 24
@@ -377,13 +377,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return label
     }
 
-    func makeButton(_ title: String, frame: NSRect, action: Selector) -> NSButton {
+    func makeButton(_ title: String, symbol: String, frame: NSRect, action: Selector) -> NSButton {
         let btn = NSButton(frame: frame)
         btn.title = title
         btn.bezelStyle = .rounded
         btn.target = self
         btn.action = action
         btn.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+        btn.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+        btn.imagePosition = .imageLeading
+        return btn
+    }
+
+    func makeLabelButton(_ title: String, symbol: String, frame: NSRect, action: Selector) -> NSButton {
+        let btn = NSButton(frame: frame)
+        btn.title = title
+        btn.bezelStyle = .rounded
+        btn.target = self
+        btn.action = action
+        btn.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+        btn.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+        btn.imagePosition = .imageLeading
         return btn
     }
 
@@ -515,7 +529,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // ─── CDP 注入启动 ──────────────────────────────────────
     @objc func startWorkBuddy() {
         injectButton.isEnabled = false
-        injectButton.title = "⏳ 启动中..."
+        injectButton.title = "启动中..."
         DispatchQueue.global().async {
             let quit = Process()
             quit.launchPath = "/usr/bin/osascript"
@@ -539,7 +553,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
             DispatchQueue.main.async {
                 self.injectButton.isEnabled = true
-                self.injectButton.title = "🔌 CDP 注入启动"
+                self.self.injectButton.title = "CDP 注入启动"; self.injectButton.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: nil)
                 self.refreshStatus()
             }
         }
@@ -587,7 +601,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         currentConfig["enabled"] = false
         currentConfig["source"] = ""
         enabledCheckbox.state = .off
-        fileLabel.stringValue = "📄 未选择文件"
+        fileLabel.stringValue = "未选择文件"
         clearPreview()
         updateConfig()
     }
@@ -654,7 +668,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         currentConfig["theme"] = themeValues[themePopup.indexOfSelectedItem]
 
         // 更新启动按钮文字
-        startButton.title = enabledCheckbox.state == .on ? "⏹️ 停止背景（支持图片 JPG/PNG/GIF、视频 MP4/MOV/WebM）" : "🎬 启动背景（支持图片 JPG/PNG/GIF、视频 MP4/MOV/WebM）"
+        startButton.title = enabledCheckbox.state == .on ? "停止背景" : "启动背景"
         saveConfig()
     }
 
