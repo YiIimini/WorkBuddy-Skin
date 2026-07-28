@@ -1,0 +1,15 @@
+# 运行时文件
+daemon.log
+daemon.pid
+
+# macOS
+.DS_Store
+
+# 编辑器
+*.swp
+*.swo
+*~
+
+# 临时文件
+*.tmp
+*.bak

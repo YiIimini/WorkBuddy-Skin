@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorkBuddy 背景设置</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: #0f0a1a;
+    color: #e8e0f0;
+    min-height: 100vh;
+    padding: 32px 20px 60px;
+  }
+  .container { max-width: 680px; margin: 0 auto; }
+  h1 {
+    font-size: 22px; font-weight: 600; margin-bottom: 4px;
+    background: linear-gradient(135deg, #ff6ba6, #c084fc);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .subtitle { color: #8a7fa0; font-size: 13px; margin-bottom: 28px; }
+
+  .card {
+    background: rgba(30, 22, 45, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 107, 166, 0.15);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 14px; font-weight: 600; color: #ffb6d0;
+    margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+  }
+
+  .row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .row:last-child { margin-bottom: 0; }
+  .row label { font-size: 14px; color: #c4b8d8; flex-shrink: 0; }
+  .row .value { font-size: 12px; color: #8a7fa0; font-variant-numeric: tabular-nums; min-width: 40px; text-align: right; }
+
+  /* Toggle switch */
+  .switch { position: relative; width: 44px; height: 24px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background: rgba(255,255,255,0.15); border-radius: 24px; transition: 0.3s;
+  }
+  .slider:before {
+    content: ""; position: absolute; height: 18px; width: 18px;
+    left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.3s;
+  }
+  input:checked + .slider { background: linear-gradient(135deg, #ff6ba6, #c084fc); }
+  input:checked + .slider:before { transform: translateX(20px); }
+
+  /* Range slider */
+  input[type=range] {
+    -webkit-appearance: none; width: 200px; height: 4px;
+    background: rgba(255,255,255,0.15); border-radius: 4px; outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px;
+    background: #ff6ba6; border-radius: 50%; cursor: pointer;
+    box-shadow: 0 0 8px rgba(255, 107, 166, 0.5);
+  }
+
+  /* Select */
+  select {
+    background: rgba(255,255,255,0.08); color: #e8e0f0; border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer;
+  }
+  select option { background: #1e162d; }
+
+  /* File picker */
+  .file-picker { display: flex; gap: 10px; align-items: center; }
+  .file-btn {
+    background: linear-gradient(135deg, rgba(255,107,166,0.2), rgba(192,132,252,0.2));
+    border: 1px solid rgba(255,107,166,0.3); color: #ffb6d0;
+    padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px;
+    transition: all 0.2s;
+  }
+  .file-btn:hover { background: linear-gradient(135deg, rgba(255,107,166,0.35), rgba(192,132,252,0.35)); }
+  .file-path {
+    flex: 1; font-size: 12px; color: #8a7fa0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    padding: 6px 10px; background: rgba(0,0,0,0.2); border-radius: 6px;
+    cursor: pointer;
+  }
+  .file-path:hover { color: #c4b8d8; }
+
+  /* Drop zone */
+  .drop-zone {
+    border: 2px dashed rgba(255,107,166,0.3); border-radius: 10px;
+    padding: 20px; text-align: center; margin-top: 10px;
+    transition: all 0.2s; cursor: pointer;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: rgba(255,107,166,0.6);
+    background: rgba(255,107,166,0.05);
+  }
+  .drop-zone .icon { font-size: 24px; margin-bottom: 8px; }
+  .drop-zone .text { font-size: 13px; color: #8a7fa0; }
+  .drop-zone .subtext { font-size: 11px; color: #5a5070; margin-top: 4px; }
+
+  /* Preview */
+  .preview {
+    width: 100%; height: 220px; border-radius: 10px; overflow: hidden;
+    background: #000; position: relative; margin-top: 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .preview video, .preview img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    transition: filter 0.2s, opacity 0.2s;
+  }
+  .preview-placeholder {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    width: 100%; height: 100%; color: #5a5070; font-size: 13px; gap: 8px;
+  }
+  .preview-overlay {
+    position: absolute; inset: 0; background: rgba(0,0,0,0);
+    transition: background 0.2s; pointer-events: none;
+  }
+
+  /* Status badge */
+  .status {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; padding: 4px 10px; border-radius: 20px;
+  }
+  .status.ok { background: rgba(52, 211, 153, 0.15); color: #34d399; }
+  .status.err { background: rgba(248, 113, 113, 0.15); color: #f87171; }
+  .status.warn { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+  .status .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .status .dot.pulse { animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* Buttons */
+  .actions { display: flex; gap: 10px; margin-top: 20px; }
+  .btn {
+    padding: 10px 24px; border-radius: 10px; font-size: 14px; font-weight: 600;
+    cursor: pointer; border: none; transition: all 0.2s;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #ff6ba6, #c084fc); color: #fff;
+    box-shadow: 0 4px 16px rgba(255, 107, 166, 0.3);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255, 107, 166, 0.4); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-secondary {
+    background: rgba(255,255,255,0.08); color: #c4b8d8; border: 1px solid rgba(255,255,255,0.1);
+  }
+  .btn-secondary:hover { background: rgba(255,255,255,0.12); }
+
+  .hint { font-size: 12px; color: #6a5f80; margin-top: 8px; line-height: 1.5; }
+  .hint code { color: #ff6ba6; background: rgba(255,107,166,0.1); padding: 1px 4px; border-radius: 3px; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: rgba(52, 211, 153, 0.95); color: #fff; padding: 10px 24px;
+    border-radius: 10px; font-size: 14px; opacity: 0; transition: opacity 0.3s;
+    z-index: 999; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  /* Keyboard shortcut hint */
+  .kbd {
+    display: inline-block; padding: 2px 6px; border-radius: 4px;
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
+    font-size: 11px; font-family: -apple-system, sans-serif;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>WorkBuddy 背景设置</h1>
+  <div class="subtitle">外部注入式背景 · 不修改应用本体 · 实时生效</div>
+
+  <!-- 连接状态 -->
+  <div class="card">
+    <div class="card-title">连接状态</div>
+    <div class="row">
+      <label>注入守护进程</label>
+      <span id="daemonStatus" class="status ok"><span class="dot"></span>运行中</span>
+    </div>
+    <div class="row">
+      <label>WorkBuddy CDP 连接</label>
+      <span id="cdpStatus" class="status warn"><span class="dot pulse"></span>检测中...</span>
+    </div>
+    <div class="row">
+      <label>当前背景</label>
+      <span id="bgStatus" class="status ok"><span class="dot"></span>已启用</span>
+    </div>
+  </div>
+
+  <!-- 背景选择 -->
+  <div class="card">
+    <div class="card-title">背景素材</div>
+    <div class="row">
+      <label>启用背景</label>
+      <div class="switch">
+        <input type="checkbox" id="enabled">
+        <span class="slider"></span>
+      </div>
+    </div>
+    <div class="row">
+      <label>选择文件</label>
+      <div class="file-picker">
+        <button class="file-btn" onclick="pickFile()">浏览…</button>
+        <span class="file-path" id="filePath" title="双击可手动输入路径">未选择</span>
+      </div>
+    </div>
+    <div class="drop-zone" id="dropZone" onclick="pickFile()">
+      <div class="icon">📁</div>
+      <div class="text">拖拽文件到此处，或点击选择</div>
+      <div class="subtext">支持 JPG / PNG / GIF / WebP / MP4 / WebM / MOV</div>
+    </div>
+    <div class="preview" id="preview">
+      <div class="preview-placeholder">
+        <div>选择图片或视频后此处显示预览</div>
+        <div style="font-size:11px">预览会实时反映效果调节</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 效果调节 -->
+  <div class="card">
+    <div class="card-title">视觉效果</div>
+    <div class="row">
+      <label>背景不透明度</label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="range" id="opacity" min="0.1" max="1" step="0.05" value="1">
+        <span class="value" id="opacityVal">100%</span>
+      </div>
+    </div>
+    <div class="row">
+      <label>暗色遮罩</label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="range" id="overlay" min="0" max="0.8" step="0.05" value="0.25">
+        <span class="value" id="overlayVal">25%</span>
+      </div>
+    </div>
+    <div class="row">
+      <label>背景模糊</label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="range" id="blur" min="0" max="20" step="1" value="0">
+        <span class="value" id="blurVal">0px</span>
+      </div>
+    </div>
+    <div class="row">
+      <label>填充方式</label>
+      <select id="scale">
+        <option value="cover">覆盖（铺满）</option>
+        <option value="contain">包含（不裁切）</option>
+        <option value="fill">拉伸</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>位置</label>
+      <select id="position">
+        <option value="center">居中</option>
+        <option value="top">顶部</option>
+        <option value="bottom">底部</option>
+        <option value="left">左侧</option>
+        <option value="right">右侧</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-primary" onclick="saveConfig()">保存并应用</button>
+    <button class="btn btn-secondary" onclick="resetConfig()">恢复默认</button>
+  </div>
+
+  <div class="hint" style="margin-top:16px">
+    提示：背景通过 CDP（Chrome DevTools Protocol）注入到 WorkBuddy 渲染进程，不修改应用文件。
+    WorkBuddy 需通过启动器（WorkBuddy+）以 <code>--remote-debugging-port=9222</code> 参数启动。
+    按 <span class="kbd">⌘</span>+<span class="kbd">S</span> 快速保存。
+  </div>
+</div>
+
+<div class="toast" id="toast">已保存</div>
+
+<script>
+let currentConfig = {};
+let previewMedia = null;
+
+async function loadConfig() {
+  try {
+    const r = await fetch('/api/config');
+    currentConfig = await r.json();
+    renderConfig();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function renderConfig() {
+  document.getElementById('enabled').checked = currentConfig.enabled !== false;
+  document.getElementById('filePath').textContent = currentConfig.source || '未选择';
+  document.getElementById('opacity').value = currentConfig.opacity != null ? currentConfig.opacity : 1;
+  document.getElementById('overlay').value = currentConfig.overlay != null ? currentConfig.overlay : 0.25;
+  document.getElementById('blur').value = parseInt(currentConfig.blur) || 0;
+  document.getElementById('scale').value = currentConfig.scale || 'cover';
+  document.getElementById('position').value = currentConfig.position || 'center';
+  updateLabels();
+  updatePreview();
+  updateBgStatus();
+}
+
+function updateLabels() {
+  document.getElementById('opacityVal').textContent = Math.round(document.getElementById('opacity').value * 100) + '%';
+  document.getElementById('overlayVal').textContent = Math.round(document.getElementById('overlay').value * 100) + '%';
+  document.getElementById('blurVal').textContent = document.getElementById('blur').value + 'px';
+}
+
+function updateBgStatus() {
+  const el = document.getElementById('bgStatus');
+  if (currentConfig.enabled && currentConfig.source) {
+    el.className = 'status ok';
+    el.innerHTML = '<span class="dot"></span>' + (currentConfig.type === 'video' ? '视频背景' : '图片背景');
+  } else if (currentConfig.enabled) {
+    el.className = 'status warn';
+    el.innerHTML = '<span class="dot"></span>已启用但未选择文件';
+  } else {
+    el.className = 'status err';
+    el.innerHTML = '<span class="dot"></span>已禁用';
+  }
+}
+
+function detectType(path) {
+  const ext = path.split('.').pop().toLowerCase();
+  const videoExts = ['mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v'];
+  const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'avif'];
+  if (videoExts.includes(ext)) return 'video';
+  if (imageExts.includes(ext)) return 'image';
+  return 'none';
+}
+
+async function pickFile() {
+  try {
+    const r = await fetch('/api/pick');
+    const data = await r.json();
+    if (!data.ok || !data.path) {
+      if (!data.cancelled) showToast('未选择文件', true);
+      return;
+    }
+    setSource(data.path);
+    showToast('已选择: ' + data.path.split('/').pop());
+  } catch (e) {
+    const path = prompt('请输入背景文件的完整路径：', currentConfig.source || '');
+    if (path) setSource(path);
+  }
+}
+
+function setSource(path) {
+  currentConfig.source = path;
+  currentConfig.type = detectType(path);
+  document.getElementById('filePath').textContent = path;
+  updatePreview();
+  updateBgStatus();
+}
+
+function showPreview(src, type) {
+  const preview = document.getElementById('preview');
+  preview.innerHTML = '';
+  if (!src) {
+    preview.innerHTML = '<div class="preview-placeholder"><div>选择图片或视频后此处显示预览</div><div style="font-size:11px">预览会实时反映效果调节</div></div>';
+    return;
+  }
+  if (type === 'video') {
+    const v = document.createElement('video');
+    v.src = src; v.autoplay = true; v.loop = true; v.muted = true; v.playsInline = true;
+    preview.appendChild(v);
+    previewMedia = v;
+  } else {
+    const img = document.createElement('img');
+    img.src = src;
+    preview.appendChild(img);
+    previewMedia = img;
+  }
+  // 添加遮罩层
+  const overlay = document.createElement('div');
+  overlay.className = 'preview-overlay';
+  overlay.id = 'previewOverlay';
+  preview.appendChild(overlay);
+  applyPreviewEffects();
+}
+
+function applyPreviewEffects() {
+  if (!previewMedia) return;
+  const opacity = parseFloat(document.getElementById('opacity').value);
+  const blur = document.getElementById('blur').value;
+  const overlayVal = parseFloat(document.getElementById('overlay').value);
+  const scale = document.getElementById('scale').value;
+  const position = document.getElementById('position').value;
+
+  previewMedia.style.opacity = opacity;
+  previewMedia.style.filter = blur > 0 ? 'blur(' + blur + 'px)' : '';
+  previewMedia.style.objectFit = scale;
+  previewMedia.style.objectPosition = position;
+  if (blur > 0) previewMedia.style.transform = 'scale(1.05)';
+  else previewMedia.style.transform = '';
+
+  const overlayEl = document.getElementById('previewOverlay');
+  if (overlayEl) overlayEl.style.background = 'rgba(0,0,0,' + overlayVal + ')';
+}
+
+function updatePreview() {
+  if (!currentConfig.source) { showPreview(null); return; }
+  const src = '/api/file?path=' + encodeURIComponent(currentConfig.source);
+  showPreview(src, currentConfig.type);
+}
+
+async function saveConfig() {
+  const cfg = {
+    enabled: document.getElementById('enabled').checked,
+    type: currentConfig.source ? detectType(currentConfig.source) : 'none',
+    source: currentConfig.source || '',
+    opacity: parseFloat(document.getElementById('opacity').value),
+    overlay: parseFloat(document.getElementById('overlay').value),
+    blur: document.getElementById('blur').value + 'px',
+    scale: document.getElementById('scale').value,
+    position: document.getElementById('position').value,
+  };
+  try {
+    const r = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cfg)
+    });
+    if (r.ok) {
+      currentConfig = cfg;
+      showToast('已保存，背景已更新');
+      updateBgStatus();
+    } else {
+      const err = await r.json();
+      showToast('保存失败: ' + (err.error || '未知错误'), true);
+    }
+  } catch (e) {
+    showToast('保存失败: ' + e.message, true);
+  }
+}
+
+function resetConfig() {
+  currentConfig = { enabled: false, type: 'none', source: '', opacity: 1, overlay: 0.25, blur: '0px', scale: 'cover', position: 'center' };
+  renderConfig();
+  saveConfig();
+}
+
+function showToast(msg, isError) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.style.background = isError ? 'rgba(248,113,113,0.95)' : 'rgba(52,211,153,0.95)';
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// 轮询守护进程状态
+async function pollStatus() {
+  try {
+    const r = await fetch('/api/status');
+    const s = await r.json();
+    const el = document.getElementById('cdpStatus');
+    if (s.cdpConnected) {
+      el.className = 'status ok';
+      el.innerHTML = '<span class="dot"></span>已连接';
+    } else {
+      el.className = 'status warn';
+      el.innerHTML = '<span class="dot pulse"></span>未连接（需通过启动器启动 WorkBuddy）';
+    }
+    document.getElementById('daemonStatus').className = 'status ok';
+    document.getElementById('daemonStatus').innerHTML = '<span class="dot"></span>运行中';
+  } catch {
+    document.getElementById('daemonStatus').className = 'status err';
+    document.getElementById('daemonStatus').innerHTML = '<span class="dot"></span>守护进程未运行';
+    document.getElementById('cdpStatus').className = 'status err';
+    document.getElementById('cdpStatus').innerHTML = '<span class="dot"></span>无法检测';
+  }
+}
+
+// 监听滑块变化 —— 实时更新预览
+['opacity', 'overlay', 'blur'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    updateLabels();
+    applyPreviewEffects();
+  });
+});
+['scale', 'position'].forEach(id => {
+  document.getElementById(id).addEventListener('change', applyPreviewEffects);
+});
+
+// 拖拽支持
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const files = e.dataTransfer.files;
+  if (files.length > 0) {
+    // 浏览器无法获取完整路径，提示用户手动输入
+    showToast('浏览器安全限制：请使用「浏览…」按钮或双击路径手动输入', true);
+  }
+});
+
+// 路径手动输入：双击路径文本可编辑
+document.getElementById('filePath').addEventListener('dblclick', function() {
+  const path = prompt('请输入背景文件的完整路径：', currentConfig.source || '');
+  if (path) setSource(path);
+});
+
+// 键盘快捷键：Cmd+S 保存
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+    e.preventDefault();
+    saveConfig();
+  }
+});
+
+// 初始化
+loadConfig();
+pollStatus();
+setInterval(pollStatus, 3000);
+</script>
+</body>
+</html>
