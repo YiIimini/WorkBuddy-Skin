@@ -200,11 +200,11 @@ function buildInjectScript() {
   ].join('\\n');
   document.head.appendChild(style);
 
-  function applyConfig(cfg) {
+  function applyConfig(cfg, mediaDataUri) {
     if (!cfg) return;
     var changed = JSON.stringify(cfg) !== JSON.stringify(currentConfig);
     currentConfig = cfg;
-    if (!changed) return;
+    if (!changed && !mediaDataUri) return;
 
     if (!cfg.enabled || cfg.type === 'none' || !cfg.source) {
       bgLayer.style.display = 'none';
@@ -215,8 +215,9 @@ function buildInjectScript() {
     bgLayer.style.opacity = String(cfg.opacity != null ? cfg.opacity : 1);
     overlay.style.background = 'rgba(0,0,0,' + (cfg.overlay != null ? cfg.overlay : 0.25) + ')';
 
-    var src = DAEMON + '/api/file?path=' + encodeURIComponent(cfg.source);
-    console.log('[wb-bg] 设置媒体源:', src);
+    // 优先使用 data URI，否则使用 HTTP URL
+    var src = mediaDataUri || (DAEMON + '/api/file?path=' + encodeURIComponent(cfg.source));
+    console.log('[wb-bg] 设置媒体源:', mediaDataUri ? 'data URI (base64)' : src);
 
     var needNew = !bgMedia || bgMedia.tagName.toLowerCase() !== (cfg.type === 'video' ? 'video' : 'img');
     if (needNew) {
@@ -238,7 +239,7 @@ function buildInjectScript() {
 
     if (bgMedia.tagName.toLowerCase() === 'video') {
       if (bgMedia.src !== src) {
-        console.log('[wb-bg] 加载视频:', src);
+        console.log('[wb-bg] 加载视频:', mediaDataUri ? 'data URI' : src);
         bgMedia.src = src;
         bgMedia.load();
         bgMedia.play().then(function() {
@@ -285,9 +286,9 @@ function buildInjectScript() {
   insertLayer();
 
   // 暴露配置应用函数供 CDP 调用
-  window.__wbBgApplyConfig = function(cfg) {
-    console.log('[wb-bg] 收到配置推送:', cfg);
-    applyConfig(cfg);
+  window.__wbBgApplyConfig = function(cfg, mediaDataUri) {
+    console.log('[wb-bg] 收到配置推送:', cfg, mediaDataUri ? 'with data URI' : 'without data URI');
+    applyConfig(cfg, mediaDataUri);
   };
 
   var observer = new MutationObserver(function() {
@@ -358,11 +359,22 @@ async function pushConfigToPage() {
   if (!cdpClient) return;
 
   try {
+    // 如果配置了媒体文件，读取并转为 base64
+    let mediaData = null;
+    if (config.enabled && config.source && fs.existsSync(config.source)) {
+      const fileBuffer = fs.readFileSync(config.source);
+      const mime = getMime(config.source);
+      mediaData = `data:${mime};base64,${fileBuffer.toString('base64')}`;
+      log('cdp', `媒体文件已读取: ${config.source} (${(fileBuffer.length / 1024 / 1024).toFixed(2)} MB)`);
+    }
+
     const configJson = JSON.stringify(config);
+    const mediaDataJson = mediaData ? JSON.stringify(mediaData) : 'null';
+
     await cdpClient.Runtime.evaluate({
       expression: `
         if (window.__wbBgApplyConfig) {
-          window.__wbBgApplyConfig(${configJson});
+          window.__wbBgApplyConfig(${configJson}, ${mediaDataJson});
         }
       `,
     });
