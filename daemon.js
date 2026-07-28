@@ -206,6 +206,8 @@ function buildInjectScript() {
     '  background-size: cover; background-position: center; background-repeat: no-repeat;',
     '  background-image: var(--wb-bg-art, none);',
     '  opacity: var(--wb-bg-opacity, 1);',
+    '  filter: var(--wb-bg-blur, none);',
+    '  transform: var(--wb-bg-scale, none);',
     '}',
     // 视频背景层（仍用 div，因为伪元素不能放 video）
     '#wb-bg-layer {',
@@ -414,6 +416,8 @@ function buildInjectScript() {
     if (!currentConfig || !currentConfig.enabled || !currentConfig.source) {
       document.documentElement.style.removeProperty('--wb-bg-art');
       document.documentElement.style.removeProperty('--wb-bg-opacity');
+      document.documentElement.style.removeProperty('--wb-bg-blur');
+      document.documentElement.style.removeProperty('--wb-bg-scale');
       layer.style.display = 'none';
       var ov = document.getElementById('wb-bg-overlay');
       if (ov) ov.style.background = 'rgba(0,0,0,0)';
@@ -431,11 +435,17 @@ function buildInjectScript() {
       document.documentElement.style.setProperty('--wb-bg-opacity', String(opacity));
       layer.style.display = 'none';
       if (cfg.blur && cfg.blur !== '0px') {
-        document.documentElement.style.setProperty('filter', 'blur(' + cfg.blur + ')');
+        document.documentElement.style.setProperty('--wb-bg-blur', 'blur(' + cfg.blur + ')');
+        document.documentElement.style.setProperty('--wb-bg-scale', 'scale(1.05)');
+      } else {
+        document.documentElement.style.removeProperty('--wb-bg-blur');
+        document.documentElement.style.removeProperty('--wb-bg-scale');
       }
     } else {
       // 视频使用 div 层
       document.documentElement.style.removeProperty('--wb-bg-art');
+      document.documentElement.style.removeProperty('--wb-bg-blur');
+      document.documentElement.style.removeProperty('--wb-bg-scale');
       var expectedTag = 'video';
       var media = layer.querySelector('video, img');
       var needRebuild = !media || media.tagName.toLowerCase() !== expectedTag || lastMediaSrc !== src;

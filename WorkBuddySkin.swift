@@ -265,7 +265,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         previewView.addSubview(noPreviewLabel)
         y -= previewHeight + 14
 
-        // 启动背景按钮 + 文件类型说明
+        // 启动背景按钮
         startButton = makeButton("启动背景", symbol: "play.rectangle", frame: NSRect(x: p, y: y - btnH, width: W - p*2, height: btnH), action: #selector(toggleBackground))
         bg.addSubview(startButton)
         y -= btnH + 14
@@ -276,7 +276,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         bg.addSubview(enabledCheckbox)
         y -= 30
 
-        // 模糊 + 填充方式 + 位置（一行三个下拉）
+        // 文字颜色（自动取色 + 取色板）+ 主题（依次排列）
+        autoTextCheckbox = NSButton(checkboxWithTitle: "自动取色", target: self, action: #selector(autoTextChanged))
+        autoTextCheckbox.frame = NSRect(x: p, y: y - 22, width: 120, height: 22)
+        autoTextCheckbox.state = .on
+        bg.addSubview(autoTextCheckbox)
+
+        textColorWell = NSColorWell(frame: NSRect(x: p + 125, y: y - 26, width: 44, height: 26))
+        textColorWell.color = NSColor.white
+        textColorWell.isEnabled = false
+        textColorWell.target = self
+        textColorWell.action = #selector(updateConfig)
+        bg.addSubview(textColorWell)
+
+        themePopup = makePopupCompact(items: ["主题: 暗紫", "主题: 暗蓝", "主题: 暗绿", "主题: 暖橙", "主题: 玫瑰", "主题: 石板", "主题: 午夜"], frame: NSRect(x: p + 180, y: y - 26, width: W - p*2 - 180, height: 26))
+        bg.addSubview(themePopup)
+        themePopup.target = self
+        themePopup.action = #selector(updateConfig)
+        y -= 36
+
+        // 模糊 + 填充方式 + 位置（一行三个）
         let popupW: CGFloat = (W - p*2 - gap*2) / 3
         blurPopup = makePopupCompact(items: ["模糊: 无", "模糊: 轻微", "模糊: 中等", "模糊: 强烈"], frame: NSRect(x: p, y: y - 26, width: popupW, height: 26))
         bg.addSubview(blurPopup)
@@ -294,28 +313,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         positionPopup.action = #selector(updateConfig)
         y -= 36
 
-        // 文字颜色 — 自动取色 + 取色板
-        autoTextCheckbox = NSButton(checkboxWithTitle: "自动取色 (根据背景反差)", target: self, action: #selector(autoTextChanged))
-        autoTextCheckbox.frame = NSRect(x: p, y: y - 22, width: 260, height: 22)
-        autoTextCheckbox.state = .on
-        bg.addSubview(autoTextCheckbox)
-
-        textColorWell = NSColorWell(frame: NSRect(x: p + 260, y: y - 26, width: 44, height: 26))
-        textColorWell.color = NSColor.white
-        textColorWell.isEnabled = false
-        textColorWell.target = self
-        textColorWell.action = #selector(updateConfig)
-        bg.addSubview(textColorWell)
-        y -= 36
-
-        // 主题配色
-        themePopup = makePopupCompact(items: ["主题: 暗紫", "主题: 暗蓝", "主题: 暗绿", "主题: 暖橙", "主题: 玫瑰", "主题: 石板", "主题: 午夜"], frame: NSRect(x: p, y: y - 26, width: popupW, height: 26))
-        bg.addSubview(themePopup)
-        themePopup.target = self
-        themePopup.action = #selector(updateConfig)
-        y -= 36
-
-        // 透明度 + 暗色遮罩度（一行两个滑块）
+        // 透明度 + 暗色遮罩度（一行两个）
         let sliderW: CGFloat = (W - p*2 - gap) / 2
         opacityValueLabel = makeLabel("100%", size: 12, bold: false, color: .textLabel)
         opacityValueLabel.alignment = .right
