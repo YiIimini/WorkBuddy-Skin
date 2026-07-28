@@ -57,6 +57,7 @@ class StatusCard: NSView {
 class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
     var bg: NSView!
+    var statusItem: NSStatusItem!
 
     var wbCard: StatusCard!
     var cdpCard: StatusCard!
@@ -89,13 +90,100 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var currentConfig: [String: Any] = [:]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        setupMenuBar()
         createWindow()
         startDaemonIfNeeded()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             self.refreshStatus()
             self.loadConfig()
+            self.updateMenuStatus()
         }
-        Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in self.refreshStatus() }
+        Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
+            self.refreshStatus()
+            self.updateMenuStatus()
+        }
+    }
+
+    // ─── 菜单栏 ──────────────────────────────────────────
+    func setupMenuBar() {
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let button = statusItem.button {
+            if let icon = NSImage(contentsOfFile: "\(NSHomeDirectory())/Pictures/暴富喵 apng.png") {
+                icon.size = NSSize(width: 18, height: 18)
+                button.image = icon
+            } else {
+                button.title = "🎨"
+            }
+        }
+        let menu = NSMenu()
+
+        let openItem = NSMenuItem(title: "打开管理器", action: #selector(showWindow), keyEquivalent: "")
+        openItem.target = self
+        menu.addItem(openItem)
+        menu.addItem(NSMenuItem.separator())
+
+        let injectItem = NSMenuItem(title: "🔌 CDP 注入启动", action: #selector(menuStartWorkBuddy), keyEquivalent: "")
+        injectItem.target = self
+        menu.addItem(injectItem)
+
+        let toggleBgItem = NSMenuItem(title: "🎬 启用背景", action: #selector(menuToggleBackground), keyEquivalent: "")
+        toggleBgItem.target = self
+        toggleBgItem.tag = 100
+        menu.addItem(toggleBgItem)
+        menu.addItem(NSMenuItem.separator())
+
+        let statusMenu = NSMenu()
+        let daemonItem = NSMenuItem(title: "守护进程: —", action: nil, keyEquivalent: "")
+        daemonItem.tag = 201; statusMenu.addItem(daemonItem)
+        let cdpItem = NSMenuItem(title: "CDP 端口: —", action: nil, keyEquivalent: "")
+        cdpItem.tag = 202; statusMenu.addItem(cdpItem)
+        let bgItem = NSMenuItem(title: "背景状态: —", action: nil, keyEquivalent: "")
+        bgItem.tag = 203; statusMenu.addItem(bgItem)
+
+        let statusMenuItem = NSMenuItem(title: "状态", action: nil, keyEquivalent: "")
+        statusMenuItem.submenu = statusMenu
+        menu.addItem(statusMenuItem)
+        menu.addItem(NSMenuItem.separator())
+
+        let refreshItem = NSMenuItem(title: "🔄 刷新状态", action: #selector(menuRefreshStatus), keyEquivalent: "")
+        refreshItem.target = self
+        menu.addItem(refreshItem)
+        menu.addItem(NSMenuItem.separator())
+
+        let quitItem = NSMenuItem(title: "退出 WorkBuddy-Skin", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(quitItem)
+
+        statusItem.menu = menu
+    }
+
+    @objc func showWindow() {
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc func menuStartWorkBuddy() { startWorkBuddy() }
+
+    @objc func menuToggleBackground() {
+        enabledCheckbox.state = enabledCheckbox.state == .on ? .off : .on
+        updateConfig()
+        updateMenuStatus()
+        showWindow()
+    }
+
+    @objc func menuRefreshStatus() { refreshStatus(); updateMenuStatus() }
+
+    func updateMenuStatus() {
+        DispatchQueue.global().async {
+            let daemonOk = self.checkPort(17890)
+            let cdpOk = self.checkPort(9222)
+            let bgActive = (self.currentConfig["enabled"] as? Bool ?? false) && !(self.currentConfig["source"] as? String ?? "").isEmpty
+            DispatchQueue.main.async {
+                if let item = self.statusItem.menu?.item(withTag: 201) { item.title = "守护进程: " + (daemonOk ? "✓ 运行中" : "✗ 未运行") }
+                if let item = self.statusItem.menu?.item(withTag: 202) { item.title = "CDP 端口: " + (cdpOk ? "✓ 已开放" : "✗ 未开放") }
+                if let item = self.statusItem.menu?.item(withTag: 203) { item.title = "背景状态: " + (bgActive ? "✓ 已启用" : "— 未启用") }
+                if let item = self.statusItem.menu?.item(withTag: 100) { item.title = bgActive ? "⏹️ 停用背景" : "🎬 启用背景" }
+            }
+        }
     }
 
     // ─── 窗口 ──────────────────────────────────────────────
@@ -590,7 +678,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return task.terminationStatus == 0
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 }
 
 let app = NSApplication.shared
