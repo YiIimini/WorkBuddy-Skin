@@ -316,24 +316,31 @@ function buildInjectScript() {
     '  box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,107,166,0.06);',
     '}',
 
-    // === 表单：玻璃输入框 ===
-    'input, textarea, select {',
-    '  background: rgba(255,255,255,0.05) !important;',
+    // === 表单：高可读性玻璃输入框 ===
+    'input:not([type=button]):not([type=submit]), textarea, select, [contenteditable], .ProseMirror {',
+    '  background: rgba(255,255,255,0.10) !important;',
     '  color: var(--wb-text) !important;',
-    '  border: 1px solid rgba(255,255,255,0.1) !important;',
+    '  border: 1px solid rgba(255,255,255,0.15) !important;',
     '  border-radius: 10px !important;',
     '  box-shadow: inset 0 1px 3px rgba(0,0,0,0.15);',
-    '  transition: border-color 0.2s, box-shadow 0.2s;',
+    '  text-shadow: none !important;',
+    '  caret-color: var(--wb-accent) !important;',
     '}',
-    'input:focus, textarea:focus, select:focus {',
-    '  border-color: rgba(var(--wb-accent-rgb),0.4) !important;',
-    '  box-shadow: 0 0 0 3px rgba(var(--wb-accent-rgb),0.1), inset 0 1px 3px rgba(0,0,0,0.15);',
+    'textarea, [contenteditable], .ProseMirror {',
+    '  line-height: 1.6 !important;',
+    '  font-size: 14px !important;',
+    '}',
+    'input:focus, textarea:focus, select:focus, [contenteditable]:focus, .ProseMirror-focused {',
+    '  border-color: rgba(var(--wb-accent-rgb),0.5) !important;',
+    '  box-shadow: 0 0 0 3px rgba(var(--wb-accent-rgb),0.12), inset 0 1px 3px rgba(0,0,0,0.15);',
     '  outline: none !important;',
+    '  background: rgba(255,255,255,0.15) !important;',
     '}',
     'pre, code, [class*="monaco"], [class*="editor"] {',
-    '  background: rgba(var(--wb-bg-rgb),0.55) !important;',
-    '  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);',
+    '  background: rgba(var(--wb-bg-rgb),0.6) !important;',
+    '  color: var(--wb-text) !important;',
     '  border-radius: 10px;',
+    '  text-shadow: none !important;',
     '}',
 
     // === 模态遮罩 ===
@@ -499,6 +506,7 @@ function buildInjectScript() {
     // 跳过表单/代码/UI控件
     var tag = el.tagName ? el.tagName.toLowerCase() : '';
     if (['input','textarea','select','button','pre','code','svg','canvas','video','img'].indexOf(tag) !== -1) return;
+    if (el.isContentEditable) return;
 
     el.style.setProperty('background', 'transparent', 'important');
     el.style.setProperty('background-color', 'transparent', 'important');
