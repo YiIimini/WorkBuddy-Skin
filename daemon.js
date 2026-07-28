@@ -359,22 +359,20 @@ async function pushConfigToPage() {
   if (!cdpClient) return;
 
   try {
-    // 如果配置了媒体文件，读取并转为 base64
-    let mediaData = null;
+    // 直接使用 file:// 协议（和 WorkBuddy 同协议，绕过安全检查）
+    let fileUri = null;
     if (config.enabled && config.source && fs.existsSync(config.source)) {
-      const fileBuffer = fs.readFileSync(config.source);
-      const mime = getMime(config.source);
-      mediaData = `data:${mime};base64,${fileBuffer.toString('base64')}`;
-      log('cdp', `媒体文件已读取: ${config.source} (${(fileBuffer.length / 1024 / 1024).toFixed(2)} MB)`);
+      fileUri = 'file://' + config.source;
+      log('cdp', `使用 file:// 协议: ${fileUri}`);
     }
 
     const configJson = JSON.stringify(config);
-    const mediaDataJson = mediaData ? JSON.stringify(mediaData) : 'null';
+    const fileUriJson = fileUri ? JSON.stringify(fileUri) : 'null';
 
     await cdpClient.Runtime.evaluate({
       expression: `
         if (window.__wbBgApplyConfig) {
-          window.__wbBgApplyConfig(${configJson}, ${mediaDataJson});
+          window.__wbBgApplyConfig(${configJson}, ${fileUriJson});
         }
       `,
     });
