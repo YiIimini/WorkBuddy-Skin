@@ -213,16 +213,20 @@ function buildInjectScript() {
     'body, div, span, p, a, li { color: var(--wb-text) !important; text-shadow: 0 1px 2px rgba(var(--wb-bg-rgb),0.72); }',
     'svg, [class*="icon"] { text-shadow: none !important; }',
 
-    // === 侧边栏：流体玻璃效果 ===
+    // === 侧边栏：透明流体玻璃 ===
     '[data-view-id=sidebar] {',
-    '  background: linear-gradient(180deg, rgba(var(--wb-panel-rgb),0.72) 0%, rgba(var(--wb-bg-rgb),0.58) 50%, rgba(var(--wb-panel-rgb),0.68) 100%) !important;',
+    '  background: linear-gradient(180deg, rgba(var(--wb-panel-rgb),0.22) 0%, rgba(var(--wb-bg-rgb),0.14) 50%, rgba(var(--wb-panel-rgb),0.20) 100%) !important;',
     '  border: none !important;',
-    '  border-right: 1px solid rgba(255,255,255,0.06) !important;',
-    '  box-shadow: inset 1px 0 0 rgba(255,255,255,0.04), 8px 0 32px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(255,107,166,0.08) !important;',
-    '  backdrop-filter: blur(28px) saturate(1.4) brightness(1.05);',
-    '  -webkit-backdrop-filter: blur(28px) saturate(1.4) brightness(1.05);',
+    '  border-right: 1px solid rgba(255,255,255,0.04) !important;',
+    '  box-shadow: inset 1px 0 0 rgba(255,255,255,0.02), 8px 0 32px rgba(0,0,0,0.2);',
+    '  backdrop-filter: blur(16px) saturate(1.3);',
+    '  -webkit-backdrop-filter: blur(16px) saturate(1.3);',
     '}',
-    // 侧边栏按钮：玻璃悬浮效果
+    // 侧边栏文字：提高可读性
+    '[data-view-id=sidebar] *, [data-view-id=sidebar] {',
+    '  text-shadow: 0 1px 3px rgba(0,0,0,0.4) !important;',
+    '}',
+    // 侧边栏按钮
     '[data-view-id=sidebar] button, [data-view-id=sidebar] a {',
     '  background: transparent !important;',
     '  color: var(--wb-text) !important;',
