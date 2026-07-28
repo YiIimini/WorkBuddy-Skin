@@ -153,35 +153,46 @@ function buildInjectScript() {
     '}',
     // span 和 p 也透明
     'span, p { background-color: transparent !important; }',
+    // 全局文字可读性：白色文字 + 黑色阴影，在任何背景上都可读
+    'body, div, span, p, a, li, label, h1, h2, h3, h4, h5, h6, td, th {',
+    '  text-shadow: 0 0 4px rgba(0,0,0,0.7), 0 1px 2px rgba(0,0,0,0.5) !important;',
+    '}',
+    // 图标和特殊元素不需要文字阴影
+    'svg, path, [class*="icon"], [class*="Icon"] { text-shadow: none !important; }',
 
     // === 例外：UI 组件需要背景保持可读性 ===
-    // 侧边栏 - 毛玻璃
+    // 侧边栏 - 加强毛玻璃，提高可读性
     '[data-view-id=sidebar], [data-view-id=sidebar] div, [data-view-id=sidebar] span {',
-    '  background: rgba(16,8,26,0.30) !important;',
-    '  background-color: rgba(16,8,26,0.30) !important;',
-    '  backdrop-filter: blur(20px) saturate(1.12) !important;',
-    '  -webkit-backdrop-filter: blur(20px) saturate(1.12) !important;',
+    '  background: rgba(12,8,20,0.60) !important;',
+    '  background-color: rgba(12,8,20,0.60) !important;',
+    '  backdrop-filter: blur(24px) saturate(1.3) !important;',
+    '  -webkit-backdrop-filter: blur(24px) saturate(1.3) !important;',
+    '}',
+    // 侧边栏文字强制白色，提高可读性
+    '[data-view-id=sidebar] *, [data-view-id=sidebar] {',
+    '  color: #ffffff !important;',
+    '  text-shadow: 0 1px 3px rgba(0,0,0,0.5) !important;',
     '}',
     // 详情面板
     '[data-view-id=detail-panel] {',
-    '  background: rgba(16,8,26,0.50) !important;',
-    '  background-color: rgba(16,8,26,0.50) !important;',
-    '  backdrop-filter: blur(18px) !important;',
-    '  -webkit-backdrop-filter: blur(18px) !important;',
+    '  background: rgba(12,8,20,0.55) !important;',
+    '  background-color: rgba(12,8,20,0.55) !important;',
+    '  backdrop-filter: blur(22px) !important;',
+    '  -webkit-backdrop-filter: blur(22px) !important;',
     '}',
     // 聊天输入区
     '.atm-modal-chat-input, .atm-modal-chat-input div {',
-    '  background: rgba(16,8,26,0.35) !important;',
-    '  background-color: rgba(16,8,26,0.35) !important;',
-    '  backdrop-filter: blur(16px) !important;',
-    '  -webkit-backdrop-filter: blur(16px) !important;',
+    '  background: rgba(12,8,20,0.45) !important;',
+    '  background-color: rgba(12,8,20,0.45) !important;',
+    '  backdrop-filter: blur(18px) !important;',
+    '  -webkit-backdrop-filter: blur(18px) !important;',
     '}',
     // 菜单/下拉
     '[role=listbox], [role=menu], .monaco-menu, [role=dialog] {',
-    '  background: rgba(16,8,26,0.55) !important;',
-    '  background-color: rgba(16,8,26,0.55) !important;',
-    '  backdrop-filter: blur(12px) !important;',
-    '  -webkit-backdrop-filter: blur(12px) !important;',
+    '  background: rgba(12,8,20,0.65) !important;',
+    '  background-color: rgba(12,8,20,0.65) !important;',
+    '  backdrop-filter: blur(16px) !important;',
+    '  -webkit-backdrop-filter: blur(16px) !important;',
     '}',
     // 表单元素恢复默认
     'input, textarea, select, button { background: revert !important; background-color: revert !important; background-image: revert !important; }',
