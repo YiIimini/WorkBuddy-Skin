@@ -142,25 +142,86 @@ function buildInjectScript() {
   var currentFileUri = null;
   var lastMediaSrc = null;
 
-  // CSS
+  // CSS — 精准策略：覆盖所有容器元素，保留表单和 UI 组件
   var cssText = [
-    'html, body { background: transparent !important; }',
-    '#root, #app, [id*="root"], [id*="app"] { background: transparent !important; }',
-    'body > div { background: transparent !important; }',
-    '[data-view-id=sidebar] { background: rgba(16,8,26,0.30) !important; backdrop-filter: blur(20px) saturate(1.12) !important; -webkit-backdrop-filter: blur(20px) saturate(1.12) !important; }',
-    '[data-view-id=detail-panel] { background: rgba(16,8,26,0.50) !important; backdrop-filter: blur(18px) saturate(1.08) !important; -webkit-backdrop-filter: blur(18px) saturate(1.08) !important; }',
-    '[data-view-id=main-content] { background: transparent !important; }',
-    '.atm-modal-chat-input [class*="_mainArea_"], .atm-modal-chat-input [class*="_content_"], .atm-modal-chat-input textarea, .atm-modal-chat-input [contenteditable] { background: rgba(16,8,26,0.30) !important; backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important; }',
-    '[role=listbox], [role=menu], .monaco-menu { background: rgba(16,8,26,0.45) !important; backdrop-filter: blur(12px) !important; -webkit-backdrop-filter: blur(12px) !important; }'
+    // === 所有容器元素强制透明 ===
+    'html, body { background: transparent !important; background-color: transparent !important; }',
+    'div, section, main, article, header, footer, nav, aside, ul, ol, li {',
+    '  background-color: transparent !important;',
+    '  background-image: none !important;',
+    '  background: transparent !important;',
+    '}',
+    // span 和 p 也透明
+    'span, p { background-color: transparent !important; }',
+
+    // === 例外：UI 组件需要背景保持可读性 ===
+    // 侧边栏 - 毛玻璃
+    '[data-view-id=sidebar], [data-view-id=sidebar] div, [data-view-id=sidebar] span {',
+    '  background: rgba(16,8,26,0.30) !important;',
+    '  background-color: rgba(16,8,26,0.30) !important;',
+    '  backdrop-filter: blur(20px) saturate(1.12) !important;',
+    '  -webkit-backdrop-filter: blur(20px) saturate(1.12) !important;',
+    '}',
+    // 详情面板
+    '[data-view-id=detail-panel] {',
+    '  background: rgba(16,8,26,0.50) !important;',
+    '  background-color: rgba(16,8,26,0.50) !important;',
+    '  backdrop-filter: blur(18px) !important;',
+    '  -webkit-backdrop-filter: blur(18px) !important;',
+    '}',
+    // 聊天输入区
+    '.atm-modal-chat-input, .atm-modal-chat-input div {',
+    '  background: rgba(16,8,26,0.35) !important;',
+    '  background-color: rgba(16,8,26,0.35) !important;',
+    '  backdrop-filter: blur(16px) !important;',
+    '  -webkit-backdrop-filter: blur(16px) !important;',
+    '}',
+    // 菜单/下拉
+    '[role=listbox], [role=menu], .monaco-menu, [role=dialog] {',
+    '  background: rgba(16,8,26,0.55) !important;',
+    '  background-color: rgba(16,8,26,0.55) !important;',
+    '  backdrop-filter: blur(12px) !important;',
+    '  -webkit-backdrop-filter: blur(12px) !important;',
+    '}',
+    // 表单元素恢复默认
+    'input, textarea, select, button { background: revert !important; background-color: revert !important; background-image: revert !important; }',
+    // 代码区
+    'pre, code, [class*="monaco"], [class*="editor"], [class*="code"] { background: revert !important; background-color: revert !important; }',
+    // 设置页面的模态遮罩 — 改为半透明毛玻璃
+    '[class*="settings-modal-overlay"], [class*="modal-overlay"], [class*="ModalOverlay"] {',
+    '  background: rgba(10,5,20,0.40) !important;',
+    '  background-color: rgba(10,5,20,0.40) !important;',
+    '  backdrop-filter: blur(10px) !important;',
+    '  -webkit-backdrop-filter: blur(10px) !important;',
+    '}',
+    // 背景层不受影响
+    '#wb-bg-layer { background: #000 !important; }',
+    '#wb-bg-overlay { background: rgba(0,0,0,0) !important; }'
   ].join('\\n');
 
+  var cssStyleEl = null;
+
+  // 每 30 帧（0.5 秒）重建 CSS，确保始终是最后一个样式表
+  var cssRebuildCounter = 0;
+
   function ensureCSS() {
-    var el = document.getElementById('wb-bg-css');
-    if (!el) {
-      el = document.createElement('style');
-      el.id = 'wb-bg-css';
-      el.textContent = cssText;
-      (document.head || document.documentElement).appendChild(el);
+    // 每 30 帧强制重建（删除+重新创建），确保我们是最后加载的样式表
+    cssRebuildCounter++;
+    var fullRebuild = (cssRebuildCounter % 30 === 0);
+
+    if (fullRebuild && cssStyleEl && cssStyleEl.parentNode) {
+      cssStyleEl.remove();
+      cssStyleEl = null;
+    }
+
+    if (!cssStyleEl || !cssStyleEl.parentNode) {
+      cssStyleEl = document.createElement('style');
+      cssStyleEl.id = 'wb-bg-css';
+      cssStyleEl.textContent = cssText;
+      (document.head || document.documentElement).appendChild(cssStyleEl);
+    } else if (document.head && cssStyleEl.parentNode === document.head && document.head.lastChild !== cssStyleEl) {
+      // 每次移动到最后
+      document.head.appendChild(cssStyleEl);
     }
   }
 
@@ -240,14 +301,89 @@ function buildInjectScript() {
     if (ov) ov.style.background = 'rgba(0,0,0,' + (cfg.overlay != null ? cfg.overlay : 0.25) + ')';
   }
 
+  // 强制清理遮挡背景的元素（JS 直接设置 inline style，优先级最高）
+  var forceFrameCount = 0;
+  var forceInterval = 15; // 每 15 帧运行一次（~0.25 秒）
+
+  function forceTransparentOnElement(el) {
+    if (!el || !el.style) return;
+    var skip = ['wb-bg-layer', 'wb-bg-overlay'];
+    if (skip.indexOf(el.id) !== -1) return;
+    if (el.hasAttribute && (el.hasAttribute('data-view-id') || el.hasAttribute('role'))) return;
+    if (el.className && typeof el.className === 'string' &&
+        (el.className.indexOf('modal') !== -1 || el.className.indexOf('monaco') !== -1 ||
+         el.className.indexOf('menu') !== -1 || el.className.indexOf('dialog') !== -1 ||
+         el.className.indexOf('chat-input') !== -1 || el.className.indexOf('sidebar') !== -1)) return;
+    // 跳过表单/代码/UI控件
+    var tag = el.tagName ? el.tagName.toLowerCase() : '';
+    if (['input','textarea','select','button','pre','code','svg','canvas','video','img'].indexOf(tag) !== -1) return;
+
+    el.style.setProperty('background', 'transparent', 'important');
+    el.style.setProperty('background-color', 'transparent', 'important');
+    el.style.setProperty('background-image', 'none', 'important');
+  }
+
+  function forceTransparentAll() {
+    try {
+      if (document.body) {
+        var children = document.body.children;
+        for (var i = 0; i < children.length && i < 50; i++) {
+          forceTransparentOnElement(children[i]);
+          // 第二层
+          var grandChildren = children[i].children;
+          if (grandChildren) {
+            for (var j = 0; j < grandChildren.length && j < 20; j++) {
+              forceTransparentOnElement(grandChildren[j]);
+            }
+          }
+        }
+      }
+    } catch(e) {}
+  }
+
+  function forceTransparent() {
+    forceFrameCount++;
+    if (forceFrameCount % forceInterval === 0) {
+      forceTransparentAll();
+    }
+  }
+
+  // MutationObserver：body 子元素变化时立即强制透明
+  var forceDebounce = null;
+  var moSetup = false;
+
+  function setupMO() {
+    if (moSetup) return;
+    if (!document.body) return;
+    moSetup = true;
+
+    var mo1 = new MutationObserver(function() {
+      if (forceDebounce) clearTimeout(forceDebounce);
+      forceDebounce = setTimeout(forceTransparentAll, 100);
+    });
+    mo1.observe(document.body, { childList: true });
+
+    var rootEl = document.getElementById('root') || document.getElementById('app')
+      || document.querySelector('[id*="root"]') || document.querySelector('[id*="app"]');
+    if (rootEl) {
+      var mo2 = new MutationObserver(function() {
+        if (forceDebounce) clearTimeout(forceDebounce);
+        forceDebounce = setTimeout(forceTransparentAll, 100);
+      });
+      mo2.observe(rootEl, { childList: true, subtree: true });
+    }
+  }
+
   // RAF 主循环
   function tick() {
     try {
+      setupMO();
       ensureCSS();
       if (document.body) {
         var layer = ensureBgLayer();
         ensureOverlay();
         ensureMedia(layer);
+        forceTransparent();
       }
     } catch(e) {}
     window.__wbBgRAF = requestAnimationFrame(tick);
