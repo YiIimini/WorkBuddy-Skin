@@ -69,6 +69,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in self.refreshStatus(); self.updateMenuStatus() }
     }
 
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { showWindow() }
+        return true
+    }
+
     func createWindow() {
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 760, height: 820), styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.title = "WorkBuddy-Skin"; window.titlebarAppearsTransparent = true; window.center()
@@ -283,7 +288,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         m.addItem(withTitle: "退出 WorkBuddy-Skin", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem.menu = m
     }
-    @objc func showWindow() { window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
+    @objc func showWindow() {
+        guard let w = window else { return }
+        w.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+    }
     @objc func menuStartWorkBuddy() { startWorkBuddy() }
     @objc func menuToggleBackground() { autoTextToggled(); updateMenuStatus(); showWindow() }
     @objc func menuRefreshStatus() { refreshStatus(); updateMenuStatus() }
@@ -437,5 +445,7 @@ func NSColorFromHex(_ hex: String) -> NSColor? { var s = hex.trimmingCharacters(
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
+// 强引用防止 ARC 释放（NSApp.delegate 是 weak）
+objc_setAssociatedObject(app, UnsafeRawPointer(bitPattern: 1)!, delegate, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
 app.setActivationPolicy(.regular)
 app.run()
