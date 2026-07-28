@@ -135,11 +135,14 @@ function buildInjectScript() {
 (function() {
   if (window.__wbBgInterval) { clearInterval(window.__wbBgInterval); }
   if (window.__wbBgRAF) { cancelAnimationFrame(window.__wbBgRAF); }
+  if (window.__wbBgPoll) { clearInterval(window.__wbBgPoll); }
 
+  var DAEMON = 'http://localhost:${HTTP_PORT}';
   var currentConfig = null;
   var currentFileUri = null;
+  var lastMediaSrc = null;
 
-  // CSS 注入（持续保证存在）
+  // CSS
   var cssText = [
     'html, body { background: transparent !important; }',
     '#root, #app, [id*="root"], [id*="app"] { background: transparent !important; }',
@@ -161,7 +164,6 @@ function buildInjectScript() {
     }
   }
 
-  // 创建/获取背景层
   function ensureBgLayer() {
     var layer = document.getElementById('wb-bg-layer');
     if (!layer) {
@@ -170,10 +172,7 @@ function buildInjectScript() {
       layer.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:-2147483648;pointer-events:none;overflow:hidden;background:#000;';
       document.body.appendChild(layer);
     }
-    // 强制保持在 body 中
-    if (!layer.parentNode) {
-      document.body.appendChild(layer);
-    }
+    if (!layer.parentNode) document.body.appendChild(layer);
     return layer;
   }
 
@@ -188,18 +187,20 @@ function buildInjectScript() {
     return ov;
   }
 
-  // 创建/重建媒体
   function ensureMedia(layer) {
     if (!currentConfig || !currentConfig.enabled || !currentConfig.source) return;
 
+    var cfg = currentConfig;
+    var expectedTag = cfg.type === 'video' ? 'video' : 'img';
+    var src = currentFileUri || ('file://' + cfg.source);
     var media = layer.querySelector('video, img');
-    var expectedTag = currentConfig.type === 'video' ? 'video' : 'img';
 
-    // 如果媒体不存在或类型不对，重建
-    if (!media || media.tagName.toLowerCase() !== expectedTag) {
+    // 只有当媒体不存在、类型不对、或 src 变了才重建
+    var needRebuild = !media || media.tagName.toLowerCase() !== expectedTag || lastMediaSrc !== src;
+
+    if (needRebuild) {
       if (media) media.remove();
-
-      if (currentConfig.type === 'video') {
+      if (cfg.type === 'video') {
         media = document.createElement('video');
         media.autoplay = true;
         media.loop = true;
@@ -209,76 +210,105 @@ function buildInjectScript() {
       } else {
         media = document.createElement('img');
       }
-
-      media.style.cssText = 'width:100%;height:100%;object-fit:' + (currentConfig.scale || 'cover') + ';object-position:' + (currentConfig.position || 'center') + ';display:block;';
-      if (currentConfig.blur && currentConfig.blur !== '0px') {
-        media.style.filter = 'blur(' + currentConfig.blur + ')';
+      media.style.cssText = 'width:100%;height:100%;object-fit:' + (cfg.scale || 'cover') + ';object-position:' + (cfg.position || 'center') + ';display:block;';
+      if (cfg.blur && cfg.blur !== '0px') {
+        media.style.filter = 'blur(' + cfg.blur + ')';
         media.style.transform = 'scale(1.05)';
       }
-
-      var src = currentFileUri || ('file://' + currentConfig.source);
       media.src = src;
-      if (currentConfig.type === 'video') {
-        media.play().catch(function(){});
-      }
+      lastMediaSrc = src;
+      if (cfg.type === 'video') media.play().catch(function(){});
       layer.appendChild(media);
+    } else {
+      // 更新样式（不重建）
+      if (media) {
+        media.style.objectFit = cfg.scale || 'cover';
+        media.style.objectPosition = cfg.position || 'center';
+        if (cfg.blur && cfg.blur !== '0px') {
+          media.style.filter = 'blur(' + cfg.blur + ')';
+          media.style.transform = 'scale(1.05)';
+        } else {
+          media.style.filter = '';
+          media.style.transform = '';
+        }
+      }
     }
 
-    // 更新层样式
     layer.style.display = 'block';
-    layer.style.opacity = String(currentConfig.opacity != null ? currentConfig.opacity : 1);
-
+    layer.style.opacity = String(cfg.opacity != null ? cfg.opacity : 1);
     var ov = document.getElementById('wb-bg-overlay');
-    if (ov) {
-      ov.style.background = 'rgba(0,0,0,' + (currentConfig.overlay != null ? currentConfig.overlay : 0.25) + ')';
-    }
+    if (ov) ov.style.background = 'rgba(0,0,0,' + (cfg.overlay != null ? cfg.overlay : 0.25) + ')';
   }
 
-  // 主循环：用 requestAnimationFrame 持续保证
-  var frameCount = 0;
+  // RAF 主循环
   function tick() {
-    ensureCSS();
-
-    if (document.body) {
-      var layer = ensureBgLayer();
-      ensureOverlay();
-      ensureMedia(layer);
-    }
-
-    frameCount++;
-    // 每 60 帧（约 1 秒）打印一次日志
-    if (frameCount % 60 === 0) {
-      // 静默
-    }
-
+    try {
+      ensureCSS();
+      if (document.body) {
+        var layer = ensureBgLayer();
+        ensureOverlay();
+        ensureMedia(layer);
+      }
+    } catch(e) {}
     window.__wbBgRAF = requestAnimationFrame(tick);
   }
 
-  // 应用配置
+  // 从守护进程拉取配置（自给自足，不依赖 CDP 推送）
+  function fetchConfig() {
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', DAEMON + '/api/config', true);
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+          try {
+            var cfg = JSON.parse(xhr.responseText);
+            currentConfig = cfg;
+            if (cfg.enabled && cfg.source) {
+              currentFileUri = 'file://' + cfg.source;
+            }
+            // 持久化到 localStorage（页面导航后可恢复）
+            try { localStorage.setItem('__wbBgConfig', JSON.stringify(cfg)); } catch(e) {}
+          } catch(e) {}
+        }
+      };
+      xhr.send();
+    } catch(e) {}
+  }
+
+  // 从 localStorage 恢复配置（页面导航后立即生效）
+  function restoreConfig() {
+    try {
+      var saved = localStorage.getItem('__wbBgConfig');
+      if (saved) {
+        var cfg = JSON.parse(saved);
+        if (cfg && cfg.enabled && cfg.source) {
+          currentConfig = cfg;
+          currentFileUri = 'file://' + cfg.source;
+          return true;
+        }
+      }
+    } catch(e) {}
+    return false;
+  }
+
+  // CDP 推送配置（也接受，并持久化）
   window.__wbBgApplyConfig = function(cfg, fileUri) {
+    if (!cfg) return;
     currentConfig = cfg;
-    currentFileUri = fileUri;
-
-    if (!cfg || !cfg.enabled || !cfg.source) {
-      var layer = document.getElementById('wb-bg-layer');
-      if (layer) layer.style.display = 'none';
-      var ov = document.getElementById('wb-bg-overlay');
-      if (ov) ov.style.background = 'rgba(0,0,0,0)';
-      return;
-    }
-
-    // 强制重建媒体（配置变了）
-    var layer = document.getElementById('wb-bg-layer');
-    if (layer) {
-      var old = layer.querySelector('video, img');
-      if (old) old.remove();
-    }
+    if (fileUri) currentFileUri = fileUri;
+    else if (cfg.source) currentFileUri = 'file://' + cfg.source;
+    // 持久化
+    try { localStorage.setItem('__wbBgConfig', JSON.stringify(cfg)); } catch(e) {}
+    // 不删除媒体！让 ensureMedia 判断是否需要重建
   };
 
-  // 启动
+  // 启动：先从 localStorage 恢复，再 fetch
+  restoreConfig();
+  fetchConfig();
   tick();
+  window.__wbBgPoll = setInterval(fetchConfig, 2000);
   window.__wbBgInjected = true;
-  console.log('[wb-bg] 背景注入已启动（RAF 持久模式）');
+  console.log('[wb-bg] 背景注入已启动（localStorage 持久模式）');
 })();
 `;
 }
@@ -322,6 +352,13 @@ async function connectCDP() {
     // 注入后立即推送当前配置
     await pushConfigToPage();
 
+    // 监听页面导航事件，导航后立即推送配置
+    Page.frameNavigated(async () => {
+      log('cdp', '检测到页面导航，立即推送配置');
+      await new Promise(r => setTimeout(r, 500)); // 等待新页面加载
+      await pushConfigToPage();
+    });
+
     reconnectAttempts = 0; // 重置重连计数
 
     cdpClient.on('disconnected', () => {
@@ -330,14 +367,14 @@ async function connectCDP() {
       scheduleReconnect();
     });
 
-    // 定期推送配置（每 5 秒），确保背景持续生效
+    // 定期推送配置（每 2 秒），确保背景持续生效
     if (configPushTimer) clearInterval(configPushTimer);
     configPushTimer = setInterval(() => {
       if (cdpClient) {
         pushConfigToPage();
       }
-    }, 5000);
-    log('cdp', '配置定时推送已启动（每 5 秒）');
+    }, 2000);
+    log('cdp', '配置定时推送已启动（每 2 秒）');
 
     return true;
   } catch (e) {
