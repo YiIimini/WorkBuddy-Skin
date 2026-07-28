@@ -278,18 +278,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 文字颜色（自动取色 + 取色板）+ 主题（依次排列）
         autoTextCheckbox = NSButton(checkboxWithTitle: "自动取色", target: self, action: #selector(autoTextChanged))
-        autoTextCheckbox.frame = NSRect(x: p, y: y - 22, width: 120, height: 22)
+        autoTextCheckbox.frame = NSRect(x: p, y: y - 22, width: 100, height: 22)
         autoTextCheckbox.state = .on
         bg.addSubview(autoTextCheckbox)
 
-        textColorWell = NSColorWell(frame: NSRect(x: p + 125, y: y - 26, width: 44, height: 26))
+        let wellLabel = makeLabel("取色板", size: 12, bold: false, color: .textLabel)
+        wellLabel.frame = NSRect(x: p + 105, y: y - 20, width: 50, height: 16)
+        bg.addSubview(wellLabel)
+
+        textColorWell = NSColorWell(frame: NSRect(x: p + 155, y: y - 26, width: 44, height: 26))
         textColorWell.color = NSColor.white
         textColorWell.isEnabled = false
         textColorWell.target = self
         textColorWell.action = #selector(updateConfig)
         bg.addSubview(textColorWell)
 
-        themePopup = makePopupCompact(items: ["主题: 暗紫", "主题: 暗蓝", "主题: 暗绿", "主题: 暖橙", "主题: 玫瑰", "主题: 石板", "主题: 午夜"], frame: NSRect(x: p + 180, y: y - 26, width: W - p*2 - 180, height: 26))
+        themePopup = makePopupCompact(items: ["主题: 暗紫", "主题: 暗蓝", "主题: 暗绿", "主题: 暖橙", "主题: 玫瑰", "主题: 石板", "主题: 午夜"], frame: NSRect(x: p + 210, y: y - 26, width: W - p*2 - 210, height: 26))
         bg.addSubview(themePopup)
         themePopup.target = self
         themePopup.action = #selector(updateConfig)
