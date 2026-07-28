@@ -434,4 +434,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 func NSColorFromHex(_ hex: String) -> NSColor? { var s = hex.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(); if s.hasPrefix("#") { s.removeFirst() }; guard s.count == 6, let n = UInt32(s, radix: 16) else { return nil }; return NSColor(srgbRed: CGFloat((n>>16)&0xFF)/255, green: CGFloat((n>>8)&0xFF)/255, blue: CGFloat(n&0xFF)/255, alpha: 1) }
 
-let app = NSApplication.shared; app.delegate = AppDelegate(); app.setActivationPolicy(.regular); app.run()
+let app = NSApplication.shared
+let delegate = AppDelegate()
+app.delegate = delegate
+app.setActivationPolicy(.regular)
+app.run()
