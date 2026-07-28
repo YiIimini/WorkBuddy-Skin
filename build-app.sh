@@ -73,4 +73,5 @@ chmod +x "${MACOS_DIR}/${APP_NAME}"
 
 echo "✅ 编译完成: $APP_DIR"
 [ "$ICON_KEY" = "true" ] && echo "🎨 图标已应用" || echo "⚠️  未找到图标文件"
+[ "$ICON_KEY" = "true" ] && killall Dock 2>/dev/null &
 echo "🚀 可以双击运行了"
