@@ -2,8 +2,8 @@
   "enabled": true,
   "type": "video",
   "source": "/Users/x/Movies/Videos/Media.localized/shiroko.mp4",
-  "opacity": 0.9,
-  "overlay": 0.3,
+  "opacity": 1,
+  "overlay": 0.5,
   "blur": "0px",
   "scale": "cover",
   "position": "center"

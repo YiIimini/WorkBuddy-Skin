@@ -126,31 +126,44 @@ function buildInjectScript() {
 
   var bgLayer = document.createElement('div');
   bgLayer.id = 'wb-bg-layer';
-  bgLayer.style.cssText = 'position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;background:#000;';
+  bgLayer.style.cssText = 'position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;background:#000;';
   var bgMedia = null;
 
   var overlay = document.createElement('div');
   overlay.id = 'wb-bg-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:1;pointer-events:none;background:rgba(0,0,0,0);transition:background 0.4s ease;';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:0;pointer-events:none;background:rgba(0,0,0,0);transition:background 0.4s ease;';
 
   var style = document.createElement('style');
   style.id = 'wb-bg-transparent-css';
   style.textContent = [
+    '/* 强制透明化所有可能的容器 */',
     'html, body { background: transparent !important; }',
-    '#root { background: transparent !important; position: relative; z-index: 2; }',
     'body[data-application-name=workbuddy] { background: transparent !important; }',
+    '#root, #app, [id*="root"], [id*="app"] {',
+    '  background: transparent !important;',
+    '  position: relative;',
+    '  z-index: 2;',
+    '}',
+    '/* 清除所有直接子元素的背景 */',
+    'body > div:not(#wb-bg-layer):not(#wb-bg-overlay) {',
+    '  background: transparent !important;',
+    '}',
+    '/* 侧边栏 - 毛玻璃效果 */',
     '[data-view-id=sidebar] {',
     '  background: rgba(16,8,26,0.30) !important;',
     '  backdrop-filter: blur(20px) saturate(1.12) !important;',
     '  -webkit-backdrop-filter: blur(20px) saturate(1.12) !important;',
     '  border: none !important;',
     '}',
+    '/* 详情面板 */',
     '[data-view-id=detail-panel] {',
     '  background: rgba(16,8,26,0.50) !important;',
     '  backdrop-filter: blur(18px) saturate(1.08) !important;',
     '  -webkit-backdrop-filter: blur(18px) saturate(1.08) !important;',
     '}',
+    '/* 主内容区 */',
     '[data-view-id=main-content] { background: transparent !important; }',
+    '/* 聊天输入框 */',
     '.atm-modal-chat-input [class*="_mainArea_"],',
     '.atm-modal-chat-input [class*="_content_"],',
     '.atm-modal-chat-input textarea,',
@@ -161,11 +174,15 @@ function buildInjectScript() {
     '  backdrop-filter: blur(16px) saturate(1.2) !important;',
     '  -webkit-backdrop-filter: blur(16px) saturate(1.2) !important;',
     '}',
+    '/* 菜单 */',
     '[role=listbox], [role=menu], .monaco-menu {',
     '  background: rgba(16,8,26,0.45) !important;',
     '  backdrop-filter: blur(12px) saturate(1.15) !important;',
     '  -webkit-backdrop-filter: blur(12px) saturate(1.15) !important;',
     '}',
+    '/* 确保背景层在最底层 */',
+    '#wb-bg-layer { z-index: -1 !important; }',
+    '#wb-bg-overlay { z-index: 0 !important; }',
   ].join('\\n');
   document.head.appendChild(style);
 
@@ -224,6 +241,7 @@ function buildInjectScript() {
     if (!document.getElementById('wb-bg-layer')) {
       document.body.insertBefore(bgLayer, document.body.firstChild);
       document.body.insertBefore(overlay, bgLayer.nextSibling);
+      console.log('[wb-bg] 背景层已插入');
     }
   }
   insertLayer();
@@ -232,9 +250,16 @@ function buildInjectScript() {
     try {
       fetch(DAEMON + '/api/config?t=' + Date.now())
         .then(function(r) { return r.json(); })
-        .then(function(cfg) { applyConfig(cfg); })
-        .catch(function() {});
-    } catch (e) {}
+        .then(function(cfg) {
+          console.log('[wb-bg] 配置已更新:', cfg);
+          applyConfig(cfg);
+        })
+        .catch(function(e) {
+          console.warn('[wb-bg] 配置获取失败:', e);
+        });
+    } catch (e) {
+      console.error('[wb-bg] 配置轮询错误:', e);
+    }
   }
   setInterval(pollConfig, 2000);
   pollConfig();
@@ -339,7 +364,7 @@ function isPathSafe(filePath) {
   return true;
 }
 
-server = http.createServer((req, res) => {
+server = http.createServer(async (req, res) => {
   const parsed = url.parse(req.url, true);
   const pathname = parsed.pathname;
   const clientIP = req.socket.remoteAddress;
@@ -471,6 +496,49 @@ server = http.createServer((req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, path: filePath }));
     });
+    return;
+  }
+
+  // GET /api/debug → 调试信息（检查注入状态）
+  if (pathname === '/api/debug' && req.method === 'GET') {
+    if (!cdpClient) {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: 'CDP 未连接' }));
+      return;
+    }
+
+    try {
+      const result = await cdpClient.Runtime.evaluate({
+        expression: `
+          (function() {
+            var bgLayer = document.getElementById('wb-bg-layer');
+            var overlay = document.getElementById('wb-bg-overlay');
+            var style = document.getElementById('wb-bg-transparent-css');
+            var root = document.getElementById('root') || document.getElementById('app');
+
+            return {
+              injected: !!window.__wbBgInjected,
+              bgLayerExists: !!bgLayer,
+              overlayExists: !!overlay,
+              styleExists: !!style,
+              bgLayerDisplay: bgLayer ? getComputedStyle(bgLayer).display : null,
+              bgLayerZIndex: bgLayer ? getComputedStyle(bgLayer).zIndex : null,
+              bgLayerOpacity: bgLayer ? getComputedStyle(bgLayer).opacity : null,
+              rootBackground: root ? getComputedStyle(root).background : null,
+              bodyBackground: getComputedStyle(document.body).background,
+              mediaSrc: bgLayer && bgLayer.querySelector('video, img') ? bgLayer.querySelector('video, img').src : null,
+            };
+          })()
+        `,
+        returnByValue: true,
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, debug: result.result.value }, null, 2));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: e.message }));
+    }
     return;
   }
 
