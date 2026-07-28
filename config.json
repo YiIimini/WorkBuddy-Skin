@@ -7,5 +7,6 @@
   "blur": "0px",
   "scale": "cover",
   "position": "center",
-  "textColor": ""
+  "textColor": "",
+  "theme": "purple"
 }

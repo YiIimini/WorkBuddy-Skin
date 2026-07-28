@@ -67,6 +67,7 @@ const DEFAULT_CONFIG = {
   scale: 'cover',
   position: 'center',
   textColor: '',
+  theme: 'purple',
 };
 
 function validateConfig(cfg) {
@@ -150,22 +151,40 @@ function buildInjectScript() {
   // 4. 侧边栏渐变+边框+阴影玻璃效果
   // 5. 按钮半透明圆角+过渡动画
 
-  var cssVars = [
-    ':root {',
-    '  --wb-bg: #0e0816; --wb-bg-rgb: 14,8,22;',
-    '  --wb-panel: #18101e; --wb-panel-rgb: 24,16,30;',
-    '  --wb-accent: #ff6ba6; --wb-accent-rgb: 255,107,166;',
-    '  --wb-text: #edf0f1; --wb-text-rgb: 237,240,241;',
-    '  --wb-muted: #a3aaae; --wb-muted-rgb: 163,170,174;',
-    '  --wb-line: rgba(255,107,166,0.12);',
-    '  --wb-glass: rgba(20,12,30,0.55);',
-    '  --wb-glass-light: rgba(30,20,44,0.40);',
-    '  --wb-glass-strong: rgba(16,10,26,0.72);',
-    '}'
-  ].join('\\n');
+  // 主题配色表
+  var themes = {
+    'purple':  { bg:'14,8,22',  panel:'24,16,30', accent:'255,107,166', text:'237,240,241', muted:'163,170,174' },
+    'blue':    { bg:'8,12,26',  panel:'14,20,36', accent:'96,165,250',  text:'237,240,245', muted:'160,170,185' },
+    'green':   { bg:'6,18,10',  panel:'12,26,16', accent:'74,222,128',  text:'230,245,235', muted:'150,180,160' },
+    'orange':  { bg:'20,10,4',  panel:'30,16,8',  accent:'251,146,60',  text:'245,235,225', muted:'180,160,140' },
+    'rose':    { bg:'20,6,14',  panel:'30,10,22', accent:'244,114,182', text:'245,230,238', muted:'180,150,165' },
+    'slate':   { bg:'12,12,18', panel:'20,20,28', accent:'148,163,184', text:'235,235,240', muted:'150,155,165' },
+    'midnight':{ bg:'4,4,16',   panel:'10,10,26', accent:'129,140,248', text:'225,230,245', muted:'140,150,170' }
+  };
+
+  function buildCssVars(themeName) {
+    var t = themes[themeName] || themes['purple'];
+    return [
+      ':root {',
+      '  --wb-bg: #' + hex(t.bg) + '; --wb-bg-rgb: ' + t.bg + ';',
+      '  --wb-panel: #' + hex(t.panel) + '; --wb-panel-rgb: ' + t.panel + ';',
+      '  --wb-accent: #' + hex(t.accent) + '; --wb-accent-rgb: ' + t.accent + ';',
+      '  --wb-text: #' + hex(t.text) + '; --wb-text-rgb: ' + t.text + ';',
+      '  --wb-muted: #' + hex(t.muted) + '; --wb-muted-rgb: ' + t.muted + ';',
+      '  --wb-line: rgba(' + t.accent + ',0.12);',
+      '  --wb-glass: rgba(' + t.panel + ',0.55);',
+      '  --wb-glass-light: rgba(' + t.panel + ',0.40);',
+      '  --wb-glass-strong: rgba(' + t.bg + ',0.72);',
+      '}'
+    ].join('\\n');
+  }
+
+  function hex(rgb) {
+    return rgb.split(',').map(function(v) { return parseInt(v).toString(16).padStart(2,'0'); }).join('');
+  }
+
 
   var cssNeutral = [
-    cssVars,
     // 未启用时：轻微侧边栏玻璃效果
     '[data-view-id=sidebar] {',
     '  border-right: 1px solid rgba(255,255,255,0.04);',
@@ -180,7 +199,6 @@ function buildInjectScript() {
   ].join('\\n');
 
   var cssActivated = [
-    cssVars,
     // === body::before 背景层 ===
     'body::before {',
     '  content: ""; position: fixed; inset: 0; z-index: -2147483648; pointer-events: none;',
@@ -335,18 +353,19 @@ function buildInjectScript() {
 
   function ensureCSS() {
     var enabled = !!(currentConfig && currentConfig.enabled && currentConfig.source);
+    var themeName = (currentConfig && currentConfig.theme) || 'purple';
     var textColor = (currentConfig && currentConfig.textColor) || '';
 
-    // 如果 DOM 中有旧 CSS 元素（注入脚本重新运行后），清理
     var oldEl = document.getElementById('wb-bg-css');
-    if (oldEl && oldEl !== cssStyleEl) {
-      oldEl.remove();
+    if (oldEl && oldEl !== cssStyleEl) { oldEl.remove(); cssStyleEl = null; }
+
+    // 主题变化时重建
+    if (cssStyleEl && (cssStyleEl.getAttribute('data-theme') !== themeName ||
+        (cssStyleEl.getAttribute('data-enabled') !== (enabled ? '1' : '0')))) {
+      cssStyleEl.remove();
       cssStyleEl = null;
     }
 
-    lastEnabled = enabled;
-
-    // 每 10 帧强制重建确保始终排最后
     cssRebuildCounter++;
     if (cssRebuildCounter % 10 === 0 && cssStyleEl && cssStyleEl.parentNode) {
       cssStyleEl.remove();
@@ -354,9 +373,12 @@ function buildInjectScript() {
     }
 
     if (!cssStyleEl || !cssStyleEl.parentNode) {
-      var css = enabled ? (cssActivated + '\\n' + buildTextColorCSS(textColor)) : cssNeutral;
+      var vars = buildCssVars(themeName);
+      var css = enabled ? (cssActivated + '\\n' + buildTextColorCSS(textColor) + '\\n' + vars) : (cssNeutral + '\\n' + vars);
       cssStyleEl = document.createElement('style');
       cssStyleEl.id = 'wb-bg-css';
+      cssStyleEl.setAttribute('data-theme', themeName);
+      cssStyleEl.setAttribute('data-enabled', enabled ? '1' : '0');
       cssStyleEl.textContent = css;
       (document.head || document.documentElement).appendChild(cssStyleEl);
     } else if (document.head && cssStyleEl.parentNode === document.head && document.head.lastChild !== cssStyleEl) {

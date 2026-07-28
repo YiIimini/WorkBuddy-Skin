@@ -76,6 +76,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var scalePopup: NSPopUpButton!
     var positionPopup: NSPopUpButton!
     var textColorPopup: NSPopUpButton!
+    var themePopup: NSPopUpButton!
     var fileLabel: NSTextField!
 
     var previewView: NSView!
@@ -208,6 +209,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         bg.addSubview(textColorPopup)
         textColorPopup.target = self
         textColorPopup.action = #selector(updateConfig)
+        y -= 36
+
+        // 主题配色
+        themePopup = makePopupCompact(items: ["主题: 暗紫", "主题: 暗蓝", "主题: 暗绿", "主题: 暖橙", "主题: 玫瑰", "主题: 石板", "主题: 午夜"], frame: NSRect(x: p, y: y - 26, width: popupW, height: 26))
+        bg.addSubview(themePopup)
+        themePopup.target = self
+        themePopup.action = #selector(updateConfig)
         y -= 36
 
         // 透明度 + 暗色遮罩度（一行两个滑块）
@@ -507,6 +515,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let textColorValues = ["", "#ffffff", "#cccccc", "#000000"]
         currentConfig["textColor"] = textColorValues[textColorPopup.indexOfSelectedItem]
 
+        let themeValues = ["purple", "blue", "green", "orange", "rose", "slate", "midnight"]
+        currentConfig["theme"] = themeValues[themePopup.indexOfSelectedItem]
+
         // 更新启动按钮文字
         startButton.title = enabledCheckbox.state == .on ? "⏹️ 停止背景（支持图片 JPG/PNG/GIF、视频 MP4/MOV/WebM）" : "🎬 启动背景（支持图片 JPG/PNG/GIF、视频 MP4/MOV/WebM）"
         saveConfig()
@@ -537,6 +548,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if let pos = json["position"] as? String, let idx = positionValues.firstIndex(of: pos) { self.positionPopup.selectItem(at: idx) }
                 let textColorValues = ["", "#ffffff", "#cccccc", "#000000"]
                 if let tc = json["textColor"] as? String, let idx = textColorValues.firstIndex(of: tc) { self.textColorPopup.selectItem(at: idx) }
+                let themeValues = ["purple", "blue", "green", "orange", "rose", "slate", "midnight"]
+                if let th = json["theme"] as? String, let idx = themeValues.firstIndex(of: th) { self.themePopup.selectItem(at: idx) }
                 self.updateConfig()
                 self.refreshStatus()
             }
