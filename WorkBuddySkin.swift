@@ -109,12 +109,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func setupMenuBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
-            if let icon = NSImage(contentsOfFile: "\(NSHomeDirectory())/Pictures/暴富喵 apng.png") {
+            // 从 bundle 读取应用图标
+            if let icon = NSImage(contentsOfFile: Bundle.main.path(forResource: "AppIcon", ofType: "icns") ?? "") {
                 icon.size = NSSize(width: 18, height: 18)
                 button.image = icon
             } else {
                 button.title = "✦"
-                button.font = NSFont.systemFont(ofSize: 16)
             }
         }
         let menu = NSMenu()

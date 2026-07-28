@@ -26,21 +26,11 @@ swiftc -o "${MACOS_DIR}/${APP_NAME}" \
   -framework AVFoundation \
   "$SCRIPT_DIR/WorkBuddySkin.swift"
 
-# 从源图片生成图标
-ICON_SRC="$HOME/Pictures/暴富喵 apng.png"
-ICONSET_DIR="/tmp/AppIcon.iconset"
-ICNS_FILE="/tmp/WorkBuddy-Skin.icns"
+# 项目本地图标
+ICON_PATH="${SCRIPT_DIR}/assets/AppIcon.icns"
 
-if [ -f "$ICON_SRC" ]; then
-  rm -rf "$ICONSET_DIR" && mkdir -p "$ICONSET_DIR"
-  for s in 16 32 64 128 256 512; do
-    s2=$((s*2))
-    sips -z $s $s "$ICON_SRC" --out "$ICONSET_DIR/icon_${s}x${s}.png" > /dev/null 2>&1
-    sips -z $s2 $s2 "$ICON_SRC" --out "$ICONSET_DIR/icon_${s}x${s}@2x.png" > /dev/null 2>&1
-  done
-  sips -z 1024 1024 "$ICON_SRC" --out "$ICONSET_DIR/icon_512x512@2x.png" > /dev/null 2>&1
-  iconutil -c icns "$ICONSET_DIR" -o "$ICNS_FILE" > /dev/null 2>&1
-  cp "$ICNS_FILE" "${RESOURCES_DIR}/AppIcon.icns"
+if [ -f "$ICON_PATH" ]; then
+  cp "$ICON_PATH" "${RESOURCES_DIR}/AppIcon.icns"
   ICON_KEY="true"
 else
   ICON_KEY="false"
