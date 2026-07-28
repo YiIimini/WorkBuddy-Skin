@@ -3,6 +3,7 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="WorkBuddy-Skin"
 APP_DIR="/Applications/${APP_NAME}.app"
 CONTENTS_DIR="${APP_DIR}/Contents"
@@ -22,7 +23,33 @@ mkdir -p "$RESOURCES_DIR"
 swiftc -o "${MACOS_DIR}/${APP_NAME}" \
   -framework Cocoa \
   -framework Foundation \
-  WorkBuddySkin.swift
+  -framework AVFoundation \
+  "$SCRIPT_DIR/WorkBuddySkin.swift"
+
+# 复制图标（如果存在）
+ICON_SRC="$HOME/Pictures/暴富喵 apng.png"
+ICONSET_DIR="/tmp/AppIcon.iconset"
+ICNS_FILE="/tmp/WorkBuddy-Skin.icns"
+
+if [ -f "$ICON_SRC" ]; then
+  rm -rf "$ICONSET_DIR"
+  mkdir -p "$ICONSET_DIR"
+  sips -z 16 16   "$ICON_SRC" --out "$ICONSET_DIR/icon_16x16.png" > /dev/null 2>&1
+  sips -z 32 32   "$ICON_SRC" --out "$ICONSET_DIR/icon_16x16@2x.png" > /dev/null 2>&1
+  sips -z 32 32   "$ICON_SRC" --out "$ICONSET_DIR/icon_32x32.png" > /dev/null 2>&1
+  sips -z 64 64   "$ICON_SRC" --out "$ICONSET_DIR/icon_32x32@2x.png" > /dev/null 2>&1
+  sips -z 128 128 "$ICON_SRC" --out "$ICONSET_DIR/icon_128x128.png" > /dev/null 2>&1
+  sips -z 256 256 "$ICON_SRC" --out "$ICONSET_DIR/icon_128x128@2x.png" > /dev/null 2>&1
+  sips -z 256 256 "$ICON_SRC" --out "$ICONSET_DIR/icon_256x256.png" > /dev/null 2>&1
+  sips -z 512 512 "$ICON_SRC" --out "$ICONSET_DIR/icon_256x256@2x.png" > /dev/null 2>&1
+  sips -z 512 512 "$ICON_SRC" --out "$ICONSET_DIR/icon_512x512.png" > /dev/null 2>&1
+  sips -z 1024 1024 "$ICON_SRC" --out "$ICONSET_DIR/icon_512x512@2x.png" > /dev/null 2>&1
+  iconutil -c icns "$ICONSET_DIR" -o "$ICNS_FILE" > /dev/null 2>&1
+  cp "$ICNS_FILE" "${RESOURCES_DIR}/AppIcon.icns"
+  ICON_KEY="true"
+else
+  ICON_KEY="false"
+fi
 
 # 创建 Info.plist
 cat > "${CONTENTS_DIR}/Info.plist" <<EOF
@@ -43,13 +70,15 @@ cat > "${CONTENTS_DIR}/Info.plist" <<EOF
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.1</string>
+	<string>2.3</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.1</string>
+	<string>2.3</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>11.0</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 </dict>
 </plist>
 EOF
@@ -58,4 +87,5 @@ EOF
 chmod +x "${MACOS_DIR}/${APP_NAME}"
 
 echo "✅ 编译完成: $APP_DIR"
+[ "$ICON_KEY" = "true" ] && echo "🎨 图标已应用" || echo "⚠️  未找到图标文件"
 echo "🚀 可以双击运行了"
