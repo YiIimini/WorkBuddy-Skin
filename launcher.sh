@@ -244,10 +244,8 @@ if [ "$DAEMON_READY" = false ]; then
   warn "守护进程未在 10 秒内就绪，请检查日志: $LOG_FILE"
 fi
 
-# ── 6. 打开设置面板 ──
+# ── 6. 完成（不自动打开浏览器）──
 sleep 1
-log "打开设置面板: http://localhost:$DAEMON_PORT"
-open "http://localhost:$DAEMON_PORT"
 
 echo ""
 log "════════════════════════════════════════════"

@@ -133,9 +133,9 @@ let config = loadConfig();
 function buildInjectScript() {
   return `
 (function() {
-  if (window.__wbBgInjected) { return; }
-  window.__wbBgInjected = true;
-
+  // 防止 ensureLayers 重复运行
+  if (window.__wbBgInterval) { clearInterval(window.__wbBgInterval); }
+  
   var currentConfig = null;
   var currentFileUri = null;
 
@@ -283,10 +283,10 @@ function buildInjectScript() {
 
   // 启动：立即插入 + 每 500ms 检查
   ensureLayers();
-  setInterval(ensureLayers, 500);
+  window.__wbBgInterval = setInterval(ensureLayers, 500);
+  window.__wbBgInjected = true;
 
   console.log('[wb-bg] 背景注入脚本已启动（持久模式）');
-})();
 })();
 `;
 }
