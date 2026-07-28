@@ -1,6 +1,6 @@
 #!/bin/bash
 #############################################################################
-# WorkBuddy+ 快速设置背景脚本
+# WorkBuddy-Skin 快速设置背景脚本
 #
 # 用法：
 #   bash set-background.sh <文件路径>
@@ -87,8 +87,8 @@ ok "类型: $TYPE"
 if curl -s "http://localhost:$DAEMON_PORT/api/health" >/dev/null 2>&1; then
   ok "守护进程运行中，背景已自动应用"
 else
-  warn "守护进程未运行，下次启动 WorkBuddy+ 时生效"
+  warn "守护进程未运行，下次启动 WorkBuddy-Skin 时生效"
 fi
 
 # 显示通知（macOS）
-osascript -e "display notification \"已设置背景: $(basename "$FILE_PATH")\" with title \"WorkBuddy+\" sound name \"Glass\"" 2>/dev/null || true
+osascript -e "display notification \"已设置背景: $(basename "$FILE_PATH")\" with title \"WorkBuddy-Skin\" sound name \"Glass\"" 2>/dev/null || true

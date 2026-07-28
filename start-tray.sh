@@ -1,5 +1,5 @@
 #!/bin/bash
-# 启动 WorkBuddy+ 托盘守护进程
+# 启动 WorkBuddy-Skin 托盘守护进程
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 NODE="/Users/x/.workbuddy/binaries/node/versions/22.22.2/bin/node"
@@ -16,7 +16,7 @@ if [ -f "$PID_FILE" ]; then
 fi
 
 # 启动
-echo "启动 WorkBuddy+ 托盘守护进程..."
+echo "启动 WorkBuddy-Skin 托盘守护进程..."
 nohup "$NODE" "$TRAY_DAEMON" > /dev/null 2>&1 &
 echo $! > "$PID_FILE"
 echo "托盘守护进程已启动 (PID: $!)"

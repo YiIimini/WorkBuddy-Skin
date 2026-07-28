@@ -1,4 +1,4 @@
--- WorkBuddy+ 控制器
+-- WorkBuddy-Skin 控制器
 -- 三步流程：1. 打开 Web 管理选择背景  2. 启动源程序并注入  3. 退出
 
 on run
@@ -7,9 +7,9 @@ end run
 
 on showMainMenu()
 	set menuItems to {"1. 打开 Web 管理（选择背景）", "2. 启动源程序并注入", "3. 退出"}
-	set choice to choose from list menuItems with prompt "WorkBuddy+ 背景注入
+	set choice to choose from list menuItems with prompt "WorkBuddy-Skin 背景注入
 
-请选择操作步骤：" with title "WorkBuddy+ 控制器" default items {"1. 打开 Web 管理（选择背景）"}
+请选择操作步骤：" with title "WorkBuddy-Skin 控制器" default items {"1. 打开 Web 管理（选择背景）"}
 
 	if choice is false then return
 
@@ -18,7 +18,7 @@ on showMainMenu()
 	if selectedItem starts with "1." then
 		openWebManager()
 	else if selectedItem starts with "2." then
-		startWorkBuddyPlus()
+		startWorkBuddySkin()
 	else if selectedItem starts with "3." then
 		return
 	end if
@@ -37,14 +37,14 @@ on openWebManager()
 	-- 打开 Web 管理面板
 	open location "http://localhost:17890"
 
-	display notification "Web 管理面板已打开，请选择背景文件" with title "WorkBuddy+" sound name "Glass"
+	display notification "Web 管理面板已打开，请选择背景文件" with title "WorkBuddy-Skin" sound name "Glass"
 
 	-- 返回主菜单
 	delay 1
 	showMainMenu()
 end openWebManager
 
-on startWorkBuddyPlus()
+on startWorkBuddySkin()
 	-- 检查 WorkBuddy 是否已运行（CDP 模式）
 	set wbRunning to checkWorkBuddyCDP()
 
@@ -55,7 +55,7 @@ on startWorkBuddyPlus()
 		set statusText to "WorkBuddy 未运行"
 	end if
 
-	display dialog statusText & return & return & "是否启动/重启 WorkBuddy+ 以应用背景？" buttons {"取消", "启动"} default button 2 with icon note
+	display dialog statusText & return & return & "是否启动/重启 WorkBuddy-Skin 以应用背景？" buttons {"取消", "启动"} default button 2 with icon note
 	if button returned of result is "取消" then
 		showMainMenu()
 		return
@@ -66,9 +66,9 @@ on startWorkBuddyPlus()
 	delay 2
 
 	-- 启动 WorkBuddy + 守护进程
-	do shell script "bash ~/WorkBuddy+/launcher.sh > /tmp/workbuddy-plus-launch.log 2>&1 &"
+	do shell script "bash ~/WorkBuddy-Skin/launcher.sh > /tmp/workbuddy-plus-launch.log 2>&1 &"
 
-	display notification "WorkBuddy+ 正在启动..." with title "WorkBuddy+" sound name "Glass"
+	display notification "WorkBuddy-Skin 正在启动..." with title "WorkBuddy-Skin" sound name "Glass"
 
 	-- 等待 WorkBuddy 启动（最多 30 秒）
 	set maxWait to 30
@@ -99,12 +99,12 @@ on startWorkBuddyPlus()
 	end if
 
 	if daemonRunning and cdpRunning then
-		display notification "WorkBuddy+ 启动成功！背景已注入" with title "WorkBuddy+" sound name "Glass"
-		display dialog "WorkBuddy+ 启动成功！" & return & return & resultText & return & return & "等待时间: " & waited & " 秒" buttons {"完成"} default button 1 with icon note
+		display notification "WorkBuddy-Skin 启动成功！背景已注入" with title "WorkBuddy-Skin" sound name "Glass"
+		display dialog "WorkBuddy-Skin 启动成功！" & return & return & resultText & return & return & "等待时间: " & waited & " 秒" buttons {"完成"} default button 1 with icon note
 	else
 		display dialog "启动可能未完成" & return & return & resultText & return & return & "请查看日志: /tmp/workbuddy-plus-launch.log" buttons {"确定"} default button 1 with icon caution
 	end if
-end startWorkBuddyPlus
+end startWorkBuddySkin
 
 on quitWorkBuddy()
 	try
@@ -117,9 +117,9 @@ on quitWorkBuddy()
 end quitWorkBuddy
 
 on startDaemonOnly()
-	do shell script "/Users/x/.workbuddy/binaries/node/versions/22.22.2/bin/node ~/WorkBuddy+/daemon.js > ~/WorkBuddy+/daemon.log 2>&1 &"
+	do shell script "/Users/x/.workbuddy/binaries/node/versions/22.22.2/bin/node ~/WorkBuddy-Skin/daemon.js > ~/WorkBuddy-Skin/daemon.log 2>&1 &"
 	delay 1
-	do shell script "pgrep -f 'node.*daemon.js' > ~/WorkBuddy+/daemon.pid"
+	do shell script "pgrep -f 'node.*daemon.js' > ~/WorkBuddy-Skin/daemon.pid"
 end startDaemonOnly
 
 on checkPort(port)

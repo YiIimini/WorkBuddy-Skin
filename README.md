@@ -1,4 +1,4 @@
-# WorkBuddy+ 背景注入器
+# WorkBuddy-Skin 背景注入器
 
 > 不修改 WorkBuddy 应用本体，通过 CDP（Chrome DevTools Protocol）外部注入自定义背景图片/视频。
 
@@ -11,7 +11,7 @@
 - **设置面板**：Web 界面，实时预览，即时生效
 - **毛玻璃效果**：WorkBuddy 面板自动变半透明，透出背景
 - **托盘守护**：常驻后台，自动监控和注入，开机自启（可选）
-- **独立应用**：WorkBuddy+.app 一键启动/设置，无需命令行
+- **独立应用**：WorkBuddy-Skin.app 一键启动/设置，无需命令行
 - **DMG 安装**：标准 macOS 安装包，拖拽安装
 
 ## 架构
@@ -36,7 +36,7 @@
 └─────────────────────────────────────────────┘
                  ↑ 启动
 ┌─────────────────────────────────────────────┐
-│  WorkBuddy+.app（启动器）                     │
+│  WorkBuddy-Skin.app（启动器）                     │
 │  双击 → 退出旧 WorkBuddy → 带 CDP 重启       │
 │       → 启动守护进程 → 打开设置面板           │
 └─────────────────────────────────────────────┘
@@ -52,15 +52,15 @@
 ### 方式 1：DMG 安装包（推荐）
 
 1. **下载 DMG**：
-   - 从 [Releases](https://github.com/YiIimini/workbuddy-WorkBuddy+/releases) 下载 `WorkBuddy+-v2.0.1.dmg`
+   - 从 [Releases](https://github.com/YiIimini/workbuddy-WorkBuddy-Skin/releases) 下载 `WorkBuddy-Skin-v2.0.1.dmg`
 
 2. **安装**：
    - 双击打开 DMG 文件
-   - 将 `WorkBuddy+.app` 拖拽到 `Applications` 文件夹
+   - 将 `WorkBuddy-Skin.app` 拖拽到 `Applications` 文件夹
    - 弹出 DMG
 
 3. **首次运行**：
-   - 打开 `Applications/WorkBuddy+.app`
+   - 打开 `Applications/WorkBuddy-Skin.app`
    - 如果提示"未受信任的开发者"，前往 **系统设置 → 隐私与安全性 → 仍要打开**
 
 4. **使用**：
@@ -72,8 +72,8 @@
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/YiIimini/workbuddy-WorkBuddy+.git
-cd workbuddy-WorkBuddy+
+git clone https://github.com/YiIimini/workbuddy-WorkBuddy-Skin.git
+cd workbuddy-WorkBuddy-Skin
 
 # 2. 安装依赖（chrome-remote-interface）
 cd /Users/x/.workbuddy/binaries/node/workspace
@@ -85,9 +85,9 @@ bash launcher.sh
 
 ### 使用
 
-#### 方式 1：WorkBuddy+.app（推荐）
+#### 方式 1：WorkBuddy-Skin.app（推荐）
 
-1. 双击 `Applications/WorkBuddy+.app`
+1. 双击 `Applications/WorkBuddy-Skin.app`
 2. 按三步流程操作：
    - **打开 Web 管理** — 选择背景文件，调整效果
    - **启动源程序并注入** — 自动重启 WorkBuddy 并应用背景
@@ -95,7 +95,7 @@ bash launcher.sh
 
 #### 方式 2：Web 设置面板
 
-1. **启动**：双击 `WorkBuddy+.app`，选择「打开 Web 管理」
+1. **启动**：双击 `WorkBuddy-Skin.app`，选择「打开 Web 管理」
 2. **设置**：浏览器自动打开 `http://localhost:17890`
 3. **选择背景**：点击「浏览…」选择图片或视频文件
 4. **调节效果**：拖动滑块实时预览
@@ -170,7 +170,7 @@ bash launcher.sh --help   # 显示帮助
 ## 文件结构
 
 ```
-WorkBuddy+/
+WorkBuddy-Skin/
 ├── daemon.js                # CDP 注入守护进程（核心）
 ├── tray-daemon.js           # 托盘守护进程（常驻后台，自动监控）
 ├── settings.html            # 设置面板（Web UI）
@@ -188,7 +188,7 @@ WorkBuddy+/
 **系统级集成：**
 ```
 /Applications/
-└── WorkBuddy+.app                   # 主应用（DMG 安装，三步流程操作）
+└── WorkBuddy-Skin.app                   # 主应用（DMG 安装，三步流程操作）
 
 ~/Applications/
 └── 设为 WorkBuddy 背景.app           # 拖拽应用（拖文件到图标设置背景）
@@ -199,8 +199,8 @@ WorkBuddy+/
 
 **DMG 安装包：**
 ```
-WorkBuddy+-v2.0.1.dmg                  # macOS 安装包（拖拽安装）
-├── WorkBuddy+.app                   # 主应用
+WorkBuddy-Skin-v2.0.1.dmg                  # macOS 安装包（拖拽安装）
+├── WorkBuddy-Skin.app                   # 主应用
 ├── Applications -> /Applications    # 快捷方式
 └── README.txt                       # 安装说明
 ```
@@ -224,7 +224,7 @@ WorkBuddy+-v2.0.1.dmg                  # macOS 安装包（拖拽安装）
 
 ### 背景不显示
 
-1. 确认 WorkBuddy 是通过 WorkBuddy+ 启动的（带 `--remote-debugging-port=9222`）
+1. 确认 WorkBuddy 是通过 WorkBuddy-Skin 启动的（带 `--remote-debugging-port=9222`）
 2. 检查守护进程状态：`bash launcher.sh --status`
 3. 查看日志：`cat daemon.log`
 4. 确认 CDP 连接：`curl http://localhost:17890/api/health`

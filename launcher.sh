@@ -1,6 +1,6 @@
 #!/bin/bash
 #############################################################################
-# WorkBuddy+ 启动器 v2.0
+# WorkBuddy-Skin 启动器 v2.0
 #
 # 功能：
 #   1. 退出正在运行的 WorkBuddy（如有）
@@ -38,7 +38,7 @@ MAGENTA='\033[1;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-log(){ printf "${MAGENTA}[WorkBuddy+]${NC} %s\n" "$*"; }
+log(){ printf "${MAGENTA}[WorkBuddy-Skin]${NC} %s\n" "$*"; }
 ok(){ printf "${GREEN}[✓]${NC} %s\n" "$*"; }
 warn(){ printf "${YELLOW}[!]${NC} %s\n" "$*"; }
 err(){ printf "${RED}[✗]${NC} %s\n" "$*" >&2; }
@@ -46,7 +46,7 @@ err(){ printf "${RED}[✗]${NC} %s\n" "$*" >&2; }
 # ─── 帮助信息 ────────────────────────────────────────────
 show_help() {
   cat << 'EOF'
-WorkBuddy+ 启动器 v2.0
+WorkBuddy-Skin 启动器 v2.0
 
 用法：
   bash launcher.sh          正常启动 WorkBuddy + 背景注入
@@ -55,7 +55,7 @@ WorkBuddy+ 启动器 v2.0
   bash launcher.sh --status 查看当前状态
 
 文件位置：
-  项目目录:  ~/.workbuddy/WorkBuddy+/ → /Users/x/Documents/WorkBuddy/WorkBuddy+/
+  项目目录:  ~/.workbuddy/WorkBuddy-Skin/ → /Users/x/Documents/WorkBuddy/WorkBuddy-Skin/
   配置文件:  config.json
   日志文件:  daemon.log
   PID 文件:  daemon.pid
@@ -71,7 +71,7 @@ EOF
 
 # ─── 状态检查 ────────────────────────────────────────────
 show_status() {
-  echo "=== WorkBuddy+ 状态 ==="
+  echo "=== WorkBuddy-Skin 状态 ==="
   echo ""
 
   # WorkBuddy 进程
@@ -81,7 +81,7 @@ show_status() {
     if pgrep -f "remote-debugging-port=$CDP_PORT" >/dev/null 2>&1; then
       ok "CDP 端口 $CDP_PORT 已开放"
     else
-      warn "CDP 端口未开放（需通过 WorkBuddy+ 启动）"
+      warn "CDP 端口未开放（需通过 WorkBuddy-Skin 启动）"
     fi
   else
     warn "WorkBuddy 未运行"
@@ -251,7 +251,7 @@ open "http://localhost:$DAEMON_PORT"
 
 echo ""
 log "════════════════════════════════════════════"
-log "  WorkBuddy+ 已启动"
+log "  WorkBuddy-Skin 已启动"
 log "  • 设置面板: http://localhost:$DAEMON_PORT"
 log "  • 守护进程日志: $LOG_FILE"
 log "  • 查看状态: bash $0 --status"

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * WorkBuddy+ 托盘守护进程
+ * WorkBuddy-Skin 托盘守护进程
  *
  * 功能：
  * - 常驻后台，监控 WorkBuddy 进程
@@ -52,8 +52,8 @@ function isDaemonRunning() {
 }
 
 // 启动 WorkBuddy + 守护进程
-async function startWorkBuddyPlus() {
-  log('启动 WorkBuddy+...');
+async function startWorkBuddySkin() {
+  log('启动 WorkBuddy-Skin...');
 
   return new Promise((resolve, reject) => {
     const proc = spawn('bash', [LAUNCHER_SCRIPT], {
@@ -72,10 +72,10 @@ async function startWorkBuddyPlus() {
     setTimeout(async () => {
       const running = await isWorkBuddyRunning();
       if (running) {
-        log('WorkBuddy+ 启动成功');
+        log('WorkBuddy-Skin 启动成功');
         resolve();
       } else {
-        log('WorkBuddy+ 启动失败');
+        log('WorkBuddy-Skin 启动失败');
         reject(new Error('启动超时'));
       }
     }, 5000);
@@ -149,8 +149,8 @@ const server = http.createServer(async (req, res) => {
   }
   else if (url.pathname === '/api/start') {
     try {
-      await startWorkBuddyPlus();
-      res.end(JSON.stringify({ success: true, message: 'WorkBuddy+ 已启动' }));
+      await startWorkBuddySkin();
+      res.end(JSON.stringify({ success: true, message: 'WorkBuddy-Skin 已启动' }));
     } catch (err) {
       res.statusCode = 500;
       res.end(JSON.stringify({ success: false, error: err.message }));
@@ -186,7 +186,7 @@ const server = http.createServer(async (req, res) => {
 
 // 启动
 async function main() {
-  log('=== WorkBuddy+ 托盘守护进程启动 ===');
+  log('=== WorkBuddy-Skin 托盘守护进程启动 ===');
 
   // 写入 PID
   fs.writeFileSync(PID_FILE, String(process.pid));

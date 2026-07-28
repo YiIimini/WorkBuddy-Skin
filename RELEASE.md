@@ -1,16 +1,16 @@
-# WorkBuddy+ v2.0.1 Release Notes
+# WorkBuddy-Skin v2.0.1 Release Notes
 
 ## 发布日期
 2026-07-28
 
 ## 下载
 
-**DMG 安装包：** [WorkBuddy+-v2.0.1.dmg](../../releases/download/v2.0.1/WorkBuddy+-v2.0.1.dmg) (806 KB)
+**DMG 安装包：** [WorkBuddy-Skin-v2.0.1.dmg](../../releases/download/v2.0.1/WorkBuddy-Skin-v2.0.1.dmg) (806 KB)
 
 ## 安装
 
-1. 下载并打开 `WorkBuddy+-v2.0.1.dmg`
-2. 将 `WorkBuddy+.app` 拖拽到 `Applications` 文件夹
+1. 下载并打开 `WorkBuddy-Skin-v2.0.1.dmg`
+2. 将 `WorkBuddy-Skin.app` 拖拽到 `Applications` 文件夹
 3. 首次运行时，如果提示"未受信任的开发者"，前往 **系统设置 → 隐私与安全性 → 仍要打开**
 
 ## 更新内容
@@ -57,7 +57,7 @@
 
 ## 使用
 
-1. 双击 `Applications/WorkBuddy+.app`
+1. 双击 `Applications/WorkBuddy-Skin.app`
 2. 按三步流程操作：
    - **打开 Web 管理** — 选择背景文件
    - **启动源程序并注入** — 自动重启 WorkBuddy
@@ -77,7 +77,7 @@
 
 ## 源代码
 
-GitHub: https://github.com/YiIimini/WorkBuddy-Plus
+GitHub: https://github.com/YiIimini/WorkBuddy-Skin
 
 ## 许可证
 
