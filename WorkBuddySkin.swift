@@ -122,16 +122,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         startButton = makeButton("启动背景", symbol: "play.rectangle", frame: NSRect(x: p, y: y - btnH, width: btnW, height: btnH), action: #selector(toggleBackground))
         bg.addSubview(startButton)
 
-        autoTextCheckbox = NSButton(checkboxWithTitle: "文字自动配色", target: self, action: #selector(autoTextChanged))
-        autoTextCheckbox.frame = NSRect(x: p + btnW + gap + 5, y: y - 22, width: 130, height: 22)
-        autoTextCheckbox.state = .on; bg.addSubview(autoTextCheckbox)
+        autoTextCheckbox = makeButton("文字自动配色", symbol: "checkmark.square", frame: NSRect(x: p + btnW + gap, y: y - btnH, width: 140, height: btnH), action: #selector(autoTextChanged))
+        autoTextCheckbox.image = NSImage(systemSymbolName: "checkmark.square.fill", accessibilityDescription: nil)
+        autoTextCheckbox.state = .on
+        bg.addSubview(autoTextCheckbox)
 
-        textColorWell = NSColorWell(frame: NSRect(x: p + btnW + gap + 140, y: y - 26, width: 40, height: 26))
+        textColorWell = NSColorWell(frame: NSRect(x: p + btnW + gap + 148, y: y - 26, width: 40, height: 26))
         textColorWell.color = .white; textColorWell.isEnabled = false
         textColorWell.target = self; textColorWell.action = #selector(updateConfig)
-        textColorWell.toolTip = "点击选中配色后自动取消「文字自动配色」设置"
         bg.addSubview(textColorWell)
-        y -= btnH + 12
+        y -= btnH + 2
+
+        let wellHint = makeLabel("点击选色后自动关闭文字自动配色", size: 10, bold: false, color: .textHint)
+        wellHint.frame = NSRect(x: p + btnW + gap, y: y - 14, width: W - p*2 - btnW - gap, height: 14)
+        bg.addSubview(wellHint)
+        y -= 14
 
         // 主题 + 模糊 + 填充 + 位置（一行四个）
         let popW: CGFloat = (W - p*2 - gap*3) / 4
@@ -254,7 +259,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     @objc func showWindow() { window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
     @objc func menuStartWorkBuddy() { startWorkBuddy() }
-    @objc func menuToggleBackground() { autoTextCheckbox.state = autoTextCheckbox.state == .on ? .off : .on; updateConfig(); updateMenuStatus(); showWindow() }
+    @objc func menuToggleBackground() { autoTextChanged(); updateMenuStatus(); showWindow() }
     @objc func menuRefreshStatus() { refreshStatus(); updateMenuStatus() }
     func updateMenuStatus() {
         DispatchQueue.global().async {
@@ -339,8 +344,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     @objc func sliderChanged() { opacityValueLabel.stringValue = "\(Int(opacitySlider.doubleValue))%"; overlayValueLabel.stringValue = "\(Int(overlaySlider.doubleValue))%"; updateConfig() }
     @objc func autoTextChanged() {
-        textColorWell.isEnabled = autoTextCheckbox.state != .on
-        if autoTextCheckbox.state == .on, let src = currentConfig["source"] as? String, !src.isEmpty { analyzeTextColor(src) }
+        autoTextCheckbox.state = autoTextCheckbox.state == .on ? .off : .on
+        let isOn = autoTextCheckbox.state == .on
+        autoTextCheckbox.image = NSImage(systemSymbolName: isOn ? "checkmark.square.fill" : "square", accessibilityDescription: nil)
+        textColorWell.isEnabled = !isOn
+        if isOn, let src = currentConfig["source"] as? String, !src.isEmpty { analyzeTextColor(src) }
         updateConfig()
     }
     func analyzeTextColor(_ path: String) {
@@ -379,7 +387,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 let bv = ["0px","5px","10px","20px"]; if let b = json["blur"] as? String, let i = bv.firstIndex(of: b) { self.blurPopup.selectItem(at: i) }
                 let sv = ["cover","contain","fill"]; if let s = json["scale"] as? String, let i = sv.firstIndex(of: s) { self.scalePopup.selectItem(at: i) }
                 let pv = ["center","top","bottom","left","right"]; if let p = json["position"] as? String, let i = pv.firstIndex(of: p) { self.positionPopup.selectItem(at: i) }
-                let auto = json["autoText"] as? Bool ?? true; self.autoTextCheckbox.state = auto ? .on : .off; self.textColorWell.isEnabled = !auto
+                let auto = json["autoText"] as? Bool ?? true; self.autoTextCheckbox.state = auto ? .on : .off; self.textColorWell.isEnabled = !auto; self.autoTextCheckbox.image = NSImage(systemSymbolName: auto ? "checkmark.square.fill" : "square", accessibilityDescription: nil)
                 if !auto, let tc = json["textColor"] as? String, tc != "auto", tc.hasPrefix("#") { self.textColorWell.color = NSColorFromHex(tc) ?? .white }
                 if auto, let src = json["source"] as? String, !src.isEmpty { self.analyzeTextColor(src) }
                 let tv = ["purple","blue","green","orange","rose","slate","midnight"]; if let t = json["theme"] as? String, let i = tv.firstIndex(of: t) { self.themePopup.selectItem(at: i) }
