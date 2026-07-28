@@ -1,20 +1,14 @@
 -- WorkBuddy-Skin 一体化管理器
--- 直接打开管理界面，集成状态监控、设置、启动等所有功能
+-- 直接启动原生桌面应用窗口，不自动打开浏览器
 
 on run
 	-- 检查守护进程是否运行
 	set daemonRunning to checkPort(17890)
 
 	if not daemonRunning then
-		display dialog "守护进程未运行，正在启动..." buttons {"确定"} default button 1 with icon note giving up after 2
 		startDaemonOnly()
 		delay 3
 	end if
-
-	-- 打开管理器界面
-	open location "http://localhost:17890"
-
-	display notification "WorkBuddy-Skin 管理器已打开" with title "WorkBuddy-Skin" sound name "Glass"
 end run
 
 on startDaemonOnly()

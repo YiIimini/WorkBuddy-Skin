@@ -368,6 +368,7 @@ async function connectCDP() {
       expression: buildInjectScript(),
       includeCommandLineAPI: false
     });
+
     log('cdp', '背景脚本已注入当前页面');
 
     // 注入后立即推送当前配置
@@ -381,12 +382,23 @@ async function connectCDP() {
       scheduleReconnect();
     });
 
+    // 定期推送配置（每 5 秒），确保背景持续生效
+    if (configPushTimer) clearInterval(configPushTimer);
+    configPushTimer = setInterval(() => {
+      if (cdpClient) {
+        pushConfigToPage();
+      }
+    }, 5000);
+    log('cdp', '配置定时推送已启动（每 5 秒）');
+
     return true;
   } catch (e) {
     log('cdp', `连接失败: ${e.message}`);
     return false;
   }
 }
+
+let configPushTimer = null;
 
 // 推送配置到页面
 async function pushConfigToPage() {
