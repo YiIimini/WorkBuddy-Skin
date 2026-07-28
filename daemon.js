@@ -333,16 +333,18 @@ function buildInjectScript() {
     var enabled = !!(currentConfig && currentConfig.enabled && currentConfig.source);
     var textColor = (currentConfig && currentConfig.textColor) || '';
 
-    // 只有当启用状态改变时才重建 CSS
-    if (lastEnabled !== enabled) {
-      if (cssStyleEl && cssStyleEl.parentNode) cssStyleEl.remove();
+    // 如果 DOM 中有旧 CSS 元素（注入脚本重新运行后），清理
+    var oldEl = document.getElementById('wb-bg-css');
+    if (oldEl && oldEl !== cssStyleEl) {
+      oldEl.remove();
       cssStyleEl = null;
-      lastEnabled = enabled;
     }
 
-    // 每 30 帧强制重建确保始终排最后
+    lastEnabled = enabled;
+
+    // 每 10 帧强制重建确保始终排最后
     cssRebuildCounter++;
-    if (cssRebuildCounter % 30 === 0 && cssStyleEl && cssStyleEl.parentNode) {
+    if (cssRebuildCounter % 10 === 0 && cssStyleEl && cssStyleEl.parentNode) {
       cssStyleEl.remove();
       cssStyleEl = null;
     }
