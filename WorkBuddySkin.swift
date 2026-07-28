@@ -276,7 +276,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         bg.addSubview(enabledCheckbox)
         y -= 30
 
-        // 文字颜色（自动取色 + 取色板）+ 主题（依次排列）
+        // 文字颜色
         autoTextCheckbox = NSButton(checkboxWithTitle: "自动取色", target: self, action: #selector(autoTextChanged))
         autoTextCheckbox.frame = NSRect(x: p, y: y - 22, width: 100, height: 22)
         autoTextCheckbox.state = .on
@@ -292,29 +292,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         textColorWell.target = self
         textColorWell.action = #selector(updateConfig)
         bg.addSubview(textColorWell)
-
-        themePopup = makePopupCompact(items: ["主题: 暗紫", "主题: 暗蓝", "主题: 暗绿", "主题: 暖橙", "主题: 玫瑰", "主题: 石板", "主题: 午夜"], frame: NSRect(x: p + 210, y: y - 26, width: W - p*2 - 210, height: 26))
-        bg.addSubview(themePopup)
-        themePopup.target = self
-        themePopup.action = #selector(updateConfig)
         y -= 36
 
-        // 模糊 + 填充方式 + 位置（一行三个）
-        let popupW: CGFloat = (W - p*2 - gap*2) / 3
-        blurPopup = makePopupCompact(items: ["模糊: 无", "模糊: 轻微", "模糊: 中等", "模糊: 强烈"], frame: NSRect(x: p, y: y - 26, width: popupW, height: 26))
-        bg.addSubview(blurPopup)
-        blurPopup.target = self
-        blurPopup.action = #selector(updateConfig)
+        // 四个下拉：2列×2行
+        let popW: CGFloat = (W - p*2 - gap) / 2
+        blurPopup = makePopupCompact(items: ["模糊: 无", "模糊: 轻微", "模糊: 中等", "模糊: 强烈"], frame: NSRect(x: p, y: y - 26, width: popW, height: 26))
+        bg.addSubview(blurPopup); blurPopup.target = self; blurPopup.action = #selector(updateConfig)
 
-        scalePopup = makePopupCompact(items: ["填充: 覆盖", "填充: 包含", "填充: 填充"], frame: NSRect(x: p + popupW + gap, y: y - 26, width: popupW, height: 26))
-        bg.addSubview(scalePopup)
-        scalePopup.target = self
-        scalePopup.action = #selector(updateConfig)
+        scalePopup = makePopupCompact(items: ["填充: 覆盖", "填充: 包含", "填充: 填充"], frame: NSRect(x: p + popW + gap, y: y - 26, width: popW, height: 26))
+        bg.addSubview(scalePopup); scalePopup.target = self; scalePopup.action = #selector(updateConfig)
+        y -= 34
 
-        positionPopup = makePopupCompact(items: ["位置: 居中", "位置: 顶部", "位置: 底部", "位置: 左侧", "位置: 右侧"], frame: NSRect(x: p + (popupW+gap)*2, y: y - 26, width: popupW, height: 26))
-        bg.addSubview(positionPopup)
-        positionPopup.target = self
-        positionPopup.action = #selector(updateConfig)
+        positionPopup = makePopupCompact(items: ["位置: 居中", "位置: 顶部", "位置: 底部", "位置: 左侧", "位置: 右侧"], frame: NSRect(x: p, y: y - 26, width: popW, height: 26))
+        bg.addSubview(positionPopup); positionPopup.target = self; positionPopup.action = #selector(updateConfig)
+
+        themePopup = makePopupCompact(items: ["主题: 暗紫", "主题: 暗蓝", "主题: 暗绿", "主题: 暖橙", "主题: 玫瑰", "主题: 石板", "主题: 午夜"], frame: NSRect(x: p + popW + gap, y: y - 26, width: popW, height: 26))
+        bg.addSubview(themePopup); themePopup.target = self; themePopup.action = #selector(updateConfig)
         y -= 36
 
         // 透明度 + 暗色遮罩度（一行两个）
