@@ -264,12 +264,15 @@ function buildInjectScript() {
     '  box-shadow: 0 1px 3px rgba(0,0,0,0.2);',
     '}',
 
-    // === 详情面板：玻璃流体 ===
+    // === 详情面板：透明玻璃 ===
     '[data-view-id=detail-panel] {',
-    '  background: linear-gradient(180deg, rgba(var(--wb-panel-rgb),0.72), rgba(var(--wb-bg-rgb),0.58)) !important;',
-    '  backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);',
-    '  border-left: 1px solid rgba(255,255,255,0.06) !important;',
-    '  box-shadow: -8px 0 32px rgba(0,0,0,0.3), inset 1px 0 0 rgba(255,255,255,0.03);',
+    '  background: linear-gradient(180deg, rgba(var(--wb-panel-rgb),0.22), rgba(var(--wb-bg-rgb),0.14)) !important;',
+    '  backdrop-filter: blur(16px) saturate(1.3); -webkit-backdrop-filter: blur(16px) saturate(1.3);',
+    '  border-left: 1px solid rgba(255,255,255,0.04) !important;',
+    '  box-shadow: -8px 0 32px rgba(0,0,0,0.2), inset 1px 0 0 rgba(255,255,255,0.02);',
+    '}',
+    '[data-view-id=detail-panel] *, [data-view-id=detail-panel] {',
+    '  text-shadow: 0 1px 3px rgba(0,0,0,0.4) !important;',
     '}',
 
     // === 聊天输入区：悬浮玻璃 ===
