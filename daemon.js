@@ -143,31 +143,124 @@ function buildInjectScript() {
   var currentFileUri = null;
   var lastMediaSrc = null;
 
-  // CSS — 双模式：启用背景时才透明化，未启用保持 WorkBuddy 原样
+  // CSS — 借鉴 Codex-Dream-Skin 设计：
+  // 1. body::before 伪元素作背景层（不依赖 DOM 元素，不被 React 移除）
+  // 2. CSS 变量定义配色
+  // 3. 渐变遮罩替代文字阴影
+  // 4. 侧边栏渐变+边框+阴影玻璃效果
+  // 5. 按钮半透明圆角+过渡动画
+
+  var cssVars = [
+    ':root {',
+    '  --wb-bg: #0e0816; --wb-bg-rgb: 14,8,22;',
+    '  --wb-panel: #18101e; --wb-panel-rgb: 24,16,30;',
+    '  --wb-accent: #ff6ba6; --wb-accent-rgb: 255,107,166;',
+    '  --wb-text: #edf0f1; --wb-text-rgb: 237,240,241;',
+    '  --wb-muted: #a3aaae; --wb-muted-rgb: 163,170,174;',
+    '  --wb-line: rgba(255,107,166,0.12);',
+    '}'
+  ].join('\\n');
+
   var cssNeutral = [
-    // 未启用时：仅轻微的侧边栏优化
+    cssVars,
+    // 未启用时：仅轻微侧边栏优化
     '[data-view-id=sidebar] {',
-    '  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);',
+    '  border-radius: 0 12px 12px 0;',
+    '  box-shadow: 10px 0 28px rgba(0,0,0,0.18);',
     '}'
   ].join('\\n');
 
   var cssActivated = [
-    'html, body { background: transparent !important; background-color: transparent !important; }',
-    'div, section, main, article, header, footer, nav, aside, ul, ol, li { background-color: transparent !important; background-image: none !important; background: transparent !important; }',
+    cssVars,
+    // === body::before 背景层（伪元素，不被 React 移除）===
+    'body::before {',
+    '  content: ""; position: fixed; inset: 0; z-index: -2147483648; pointer-events: none;',
+    '  background-size: cover; background-position: center; background-repeat: no-repeat;',
+    '  background-image: var(--wb-bg-art, none);',
+    '}',
+    // 视频背景层（仍用 div，因为伪元素不能放 video）
+    '#wb-bg-layer {',
+    '  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;',
+    '  z-index: -2147483648; pointer-events: none; overflow: hidden;',
+    '  background: #000;',
+    '}',
+
+    // === body::after 渐变遮罩层（提升文字可读性）===
+    'body::after {',
+    '  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;',
+    '  background: linear-gradient(180deg,',
+    '    rgba(var(--wb-bg-rgb),0.10) 0%,',
+    '    rgba(var(--wb-bg-rgb),0.18) 32%,',
+    '    rgba(var(--wb-bg-rgb),0.76) 68%,',
+    '    rgba(var(--wb-bg-rgb),1) 100%);',
+    '}',
+
+    // === 容器透明化 ===
+    'html, body { background: transparent !important; }',
+    'div, section, main, article, nav, aside, ul, ol, li { background: transparent !important; }',
     'span, p { background-color: transparent !important; }',
-    // 文字阴影
-    'body, div, span, p, a, li, label { text-shadow: 0 0 3px rgba(0,0,0,0.6), 0 1px 2px rgba(0,0,0,0.4) !important; }',
+
+    // === 文字颜色（使用 CSS 变量）===
+    'body, div, span, p, a, li { color: var(--wb-text) !important; text-shadow: 0 1px 2px rgba(var(--wb-bg-rgb),0.72); }',
     'svg, [class*="icon"] { text-shadow: none !important; }',
-    // UI 组件毛玻璃
-    '[data-view-id=sidebar], [data-view-id=sidebar] div, [data-view-id=sidebar] span { background: rgba(12,8,20,0.60) !important; backdrop-filter: blur(24px) saturate(1.3) !important; -webkit-backdrop-filter: blur(24px) saturate(1.3) !important; color: #fff !important; text-shadow: 0 1px 3px rgba(0,0,0,0.5) !important; }',
-    '[data-view-id=detail-panel] { background: rgba(12,8,20,0.55) !important; backdrop-filter: blur(22px) !important; -webkit-backdrop-filter: blur(22px) !important; }',
-    '.atm-modal-chat-input, .atm-modal-chat-input div { background: rgba(12,8,20,0.45) !important; backdrop-filter: blur(18px) !important; -webkit-backdrop-filter: blur(18px) !important; }',
-    '[role=listbox], [role=menu], .monaco-menu, [role=dialog] { background: rgba(12,8,20,0.65) !important; backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important; }',
-    'input, textarea, select, button { background: revert !important; background-color: revert !important; background-image: revert !important; }',
-    'pre, code, [class*="monaco"], [class*="editor"] { background: revert !important; background-color: revert !important; }',
-    '[class*="settings-modal-overlay"], [class*="modal-overlay"] { background: rgba(10,5,20,0.40) !important; backdrop-filter: blur(10px) !important; -webkit-backdrop-filter: blur(10px) !important; }',
-    '#wb-bg-layer { background: #000 !important; }',
-    '#wb-bg-overlay { background: rgba(0,0,0,0) !important; }'
+
+    // === 侧边栏：渐变+边框+阴影 玻璃效果 ===
+    '[data-view-id=sidebar] {',
+    '  background: linear-gradient(180deg, rgba(var(--wb-panel-rgb),0.92), rgba(var(--wb-bg-rgb),0.86)) !important;',
+    '  border: 1px solid var(--wb-line); border-left: 0;',
+    '  border-radius: 0 14px 14px 0;',
+    '  box-shadow: 10px 0 32px rgba(var(--wb-bg-rgb),0.24);',
+    '  backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);',
+    '}',
+    '[data-view-id=sidebar] button, [data-view-id=sidebar] a {',
+    '  color: var(--wb-text) !important; transition: background 0.18s, color 0.18s;',
+    '}',
+    '[data-view-id=sidebar] [aria-current="page"] {',
+    '  background: rgba(var(--wb-accent-rgb),0.12) !important;',
+    '  border: 1px solid rgba(var(--wb-accent-rgb),0.22);',
+    '}',
+
+    // === 按钮美化：半透明圆角+过渡动画 ===
+    'button:not([class*="sidebar"]):not([class*="menu"]) {',
+    '  border-radius: 10px !important;',
+    '  transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s !important;',
+    '}',
+    'button:hover:not([class*="sidebar"]) {',
+    '  transform: translateY(-1px);',
+    '}',
+
+    // === 详情面板 ===
+    '[data-view-id=detail-panel] {',
+    '  background: rgba(var(--wb-panel-rgb),0.82) !important;',
+    '  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);',
+    '  border-left: 1px solid var(--wb-line);',
+    '}',
+
+    // === 聊天输入区 ===
+    '.atm-modal-chat-input, .atm-modal-chat-input div {',
+    '  background: rgba(var(--wb-panel-rgb),0.72) !important;',
+    '  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);',
+    '  border-radius: 14px; border: 1px solid var(--wb-line);',
+    '}',
+
+    // === 菜单/下拉 ===
+    '[role=listbox], [role=menu], .monaco-menu, [role=dialog] {',
+    '  background: rgba(var(--wb-panel-rgb),0.88) !important;',
+    '  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);',
+    '  border-radius: 12px; border: 1px solid var(--wb-line);',
+    '}',
+
+    // === 表单/代码恢复 ===
+    'input, textarea, select { background: rgba(var(--wb-panel-rgb),0.8) !important; color: var(--wb-text) !important; border: 1px solid var(--wb-line) !important; border-radius: 8px; }',
+    'pre, code, [class*="monaco"], [class*="editor"] { background: rgba(var(--wb-bg-rgb),0.6) !important; }',
+
+    // === 模态遮罩 ===
+    '[class*="modal-overlay"], [class*="ModalOverlay"] {',
+    '  background: rgba(var(--wb-bg-rgb),0.45) !important; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);',
+    '}',
+
+    // === 遮罩层 ===
+    '#wb-bg-overlay { background: rgba(var(--wb-bg-rgb),0) !important; }'
   ].join('\\n');
 
   function buildTextColorCSS(tc) {
@@ -235,25 +328,31 @@ function buildInjectScript() {
     if (!currentConfig || !currentConfig.enabled || !currentConfig.source) return;
 
     var cfg = currentConfig;
-    var expectedTag = cfg.type === 'video' ? 'video' : 'img';
     var src = currentFileUri || ('file://' + cfg.source);
-    var media = layer.querySelector('video, img');
 
-    // 只有当媒体不存在、类型不对、或 src 变了才重建
+    // 图片使用 body::before CSS 变量（伪元素不会被 React 移除）
+    if (cfg.type === 'image') {
+      document.documentElement.style.setProperty('--wb-bg-art', 'url(' + src + ')');
+      layer.style.display = 'none'; // 图片不需要 div 层
+      if (cfg.blur && cfg.blur !== '0px') {
+        document.documentElement.style.setProperty('filter', 'blur(' + cfg.blur + ')');
+      }
+      return;
+    }
+
+    // 视频使用 div 层
+    var expectedTag = 'video';
+    var media = layer.querySelector('video, img');
     var needRebuild = !media || media.tagName.toLowerCase() !== expectedTag || lastMediaSrc !== src;
 
     if (needRebuild) {
       if (media) media.remove();
-      if (cfg.type === 'video') {
-        media = document.createElement('video');
-        media.autoplay = true;
-        media.loop = true;
-        media.muted = true;
-        media.playsInline = true;
-        media.setAttribute('muted', '');
-      } else {
-        media = document.createElement('img');
-      }
+      media = document.createElement('video');
+      media.autoplay = true;
+      media.loop = true;
+      media.muted = true;
+      media.playsInline = true;
+      media.setAttribute('muted', '');
       media.style.cssText = 'width:100%;height:100%;object-fit:' + (cfg.scale || 'cover') + ';object-position:' + (cfg.position || 'center') + ';display:block;';
       if (cfg.blur && cfg.blur !== '0px') {
         media.style.filter = 'blur(' + cfg.blur + ')';
@@ -261,23 +360,17 @@ function buildInjectScript() {
       }
       media.src = src;
       lastMediaSrc = src;
-      if (cfg.type === 'video') media.play().catch(function(){});
+      media.play().catch(function(){});
       layer.appendChild(media);
     } else {
-      // 更新样式（不重建）
       if (media) {
         media.style.objectFit = cfg.scale || 'cover';
         media.style.objectPosition = cfg.position || 'center';
-        if (cfg.blur && cfg.blur !== '0px') {
-          media.style.filter = 'blur(' + cfg.blur + ')';
-          media.style.transform = 'scale(1.05)';
-        } else {
-          media.style.filter = '';
-          media.style.transform = '';
-        }
       }
     }
 
+    // 清除 body::before 的图片背景（视频用 div 层）
+    document.documentElement.style.removeProperty('--wb-bg-art');
     layer.style.display = 'block';
     layer.style.opacity = String(cfg.opacity != null ? cfg.opacity : 1);
     var ov = document.getElementById('wb-bg-overlay');
