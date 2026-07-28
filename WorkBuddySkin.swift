@@ -76,7 +76,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var blurPopup: NSPopUpButton!
     var scalePopup: NSPopUpButton!
     var positionPopup: NSPopUpButton!
-    var textColorPopup: NSPopUpButton!
+    var autoTextCheckbox: NSButton!
+    var textColorWell: NSColorWell!
     var themePopup: NSPopUpButton!
     var fileLabel: NSTextField!
 
@@ -292,11 +293,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         positionPopup.action = #selector(updateConfig)
         y -= 36
 
-        // 文字颜色
-        textColorPopup = makePopupCompact(items: ["文字: 默认", "文字: 白色 #fff", "文字: 浅灰 #ccc", "文字: 黑色 #000"], frame: NSRect(x: p, y: y - 26, width: popupW, height: 26))
-        bg.addSubview(textColorPopup)
-        textColorPopup.target = self
-        textColorPopup.action = #selector(updateConfig)
+        // 文字颜色 — 自动取色 + 取色板
+        autoTextCheckbox = NSButton(checkboxWithTitle: "自动取色 (根据背景反差)", target: self, action: #selector(autoTextChanged))
+        autoTextCheckbox.frame = NSRect(x: p, y: y - 22, width: 260, height: 22)
+        autoTextCheckbox.state = .on
+        bg.addSubview(autoTextCheckbox)
+
+        textColorWell = NSColorWell(frame: NSRect(x: p + 260, y: y - 26, width: 44, height: 26))
+        textColorWell.color = NSColor.white
+        textColorWell.isEnabled = false
+        textColorWell.target = self
+        textColorWell.action = #selector(updateConfig)
+        bg.addSubview(textColorWell)
         y -= 36
 
         // 主题配色
@@ -583,6 +591,39 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         updateConfig()
     }
 
+    @objc func autoTextChanged() {
+        textColorWell.isEnabled = autoTextCheckbox.state != .on
+        if autoTextCheckbox.state == .on, let src = currentConfig["source"] as? String, !src.isEmpty {
+            analyzeTextColor(src)
+        }
+        updateConfig()
+    }
+
+    func analyzeTextColor(_ path: String) {
+        DispatchQueue.global().async {
+            guard let image = NSImage(contentsOfFile: path),
+                  let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+            let w = min(cgImage.width, 100), h = min(cgImage.height, 100)
+            guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
+            ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: w, height: h))
+            guard let data = ctx.data else { return }
+            let pixels = data.bindMemory(to: UInt8.self, capacity: w * h * 4)
+            var r: Double = 0, g: Double = 0, b: Double = 0, count: Double = 0
+            for i in stride(from: 0, to: w * h * 4, by: 4) {
+                r += Double(pixels[i]); g += Double(pixels[i+1]); b += Double(pixels[i+2]); count += 1
+            }
+            let luminance = (0.299 * r + 0.587 * g + 0.114 * b) / count / 255
+            DispatchQueue.main.async {
+                if self.autoTextCheckbox.state == .on {
+                    self.textColorWell.color = luminance > 0.5 ? .black : .white
+                    self.updateConfig()
+                }
+            }
+        }
+    }
+
     @objc func sliderChanged() {
         opacityValueLabel.stringValue = "\(Int(opacitySlider.doubleValue))%"
         overlayValueLabel.stringValue = "\(Int(overlaySlider.doubleValue))%"
@@ -600,8 +641,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let positionValues = ["center", "top", "bottom", "left", "right"]
         currentConfig["position"] = positionValues[positionPopup.indexOfSelectedItem]
 
-        let textColorValues = ["", "#ffffff", "#cccccc", "#000000"]
-        currentConfig["textColor"] = textColorValues[textColorPopup.indexOfSelectedItem]
+        currentConfig["autoText"] = autoTextCheckbox.state == .on
+        if autoTextCheckbox.state == .on {
+            currentConfig["textColor"] = "auto"
+        } else {
+            let c = textColorWell.color.usingColorSpace(.sRGB)!
+            currentConfig["textColor"] = String(format: "#%02x%02x%02x", Int(c.redComponent * 255), Int(c.greenComponent * 255), Int(c.blueComponent * 255))
+        }
 
         let themeValues = ["purple", "blue", "green", "orange", "rose", "slate", "midnight"]
         currentConfig["theme"] = themeValues[themePopup.indexOfSelectedItem]
@@ -634,8 +680,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if let scale = json["scale"] as? String, let idx = scaleValues.firstIndex(of: scale) { self.scalePopup.selectItem(at: idx) }
                 let positionValues = ["center", "top", "bottom", "left", "right"]
                 if let pos = json["position"] as? String, let idx = positionValues.firstIndex(of: pos) { self.positionPopup.selectItem(at: idx) }
-                let textColorValues = ["", "#ffffff", "#cccccc", "#000000"]
-                if let tc = json["textColor"] as? String, let idx = textColorValues.firstIndex(of: tc) { self.textColorPopup.selectItem(at: idx) }
+                let tc = json["textColor"] as? String ?? ""
+                let autoText = json["autoText"] as? Bool ?? true
+                self.autoTextCheckbox.state = autoText ? .on : .off
+                self.textColorWell.isEnabled = !autoText
+                if !autoText && !tc.isEmpty && tc != "auto" && tc.hasPrefix("#") {
+                    self.textColorWell.color = NSColorFromHex(tc) ?? .white
+                }
+                if autoText, let src = json["source"] as? String, !src.isEmpty {
+                    self.analyzeTextColor(src)
+                }
                 let themeValues = ["purple", "blue", "green", "orange", "rose", "slate", "midnight"]
                 if let th = json["theme"] as? String, let idx = themeValues.firstIndex(of: th) { self.themePopup.selectItem(at: idx) }
                 self.updateConfig()
@@ -679,6 +733,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+}
+
+func NSColorFromHex(_ hex: String) -> NSColor? {
+    var s = hex.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+    if s.hasPrefix("#") { s.removeFirst() }
+    guard s.count == 6, let n = UInt32(s, radix: 16) else { return nil }
+    return NSColor(srgbRed: CGFloat((n >> 16) & 0xFF) / 255,
+                   green: CGFloat((n >> 8) & 0xFF) / 255,
+                   blue: CGFloat(n & 0xFF) / 255, alpha: 1)
 }
 
 let app = NSApplication.shared

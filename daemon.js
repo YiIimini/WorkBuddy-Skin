@@ -68,6 +68,7 @@ const DEFAULT_CONFIG = {
   position: 'center',
   textColor: '',
   theme: 'purple',
+  autoText: true,
 };
 
 function validateConfig(cfg) {
@@ -343,7 +344,7 @@ function buildInjectScript() {
   ].join('\\n');
 
   function buildTextColorCSS(tc) {
-    if (!tc) return '';
+    if (!tc || tc === 'auto') return ''; // auto 模式不覆盖，使用主题文字色
     return 'body, div, span, p, a, li, label, h1, h2, h3, h4, h5, h6, th, td { color: ' + tc + ' !important; }';
   }
 
