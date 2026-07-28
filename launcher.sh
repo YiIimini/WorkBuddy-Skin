@@ -55,7 +55,7 @@ WorkBuddy+ 启动器 v2.0
   bash launcher.sh --status 查看当前状态
 
 文件位置：
-  项目目录:  ~/.workbuddy/bg-injector/ → /Users/x/Documents/WorkBuddy/bg-injector/
+  项目目录:  ~/.workbuddy/WorkBuddy+/ → /Users/x/Documents/WorkBuddy/WorkBuddy+/
   配置文件:  config.json
   日志文件:  daemon.log
   PID 文件:  daemon.pid

@@ -62,7 +62,7 @@
 
 ## 源代码
 
-GitHub: https://github.com/YiIimini/workbuddy-bg-injector
+GitHub: https://github.com/YiIimini/workbuddy-WorkBuddy+
 
 ## 许可证
 

@@ -52,7 +52,7 @@
 ### 方式 1：DMG 安装包（推荐）
 
 1. **下载 DMG**：
-   - 从 [Releases](https://github.com/YiIimini/workbuddy-bg-injector/releases) 下载 `WorkBuddy+-v2.0.dmg`
+   - 从 [Releases](https://github.com/YiIimini/workbuddy-WorkBuddy+/releases) 下载 `WorkBuddy+-v2.0.dmg`
 
 2. **安装**：
    - 双击打开 DMG 文件
@@ -72,8 +72,8 @@
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/YiIimini/workbuddy-bg-injector.git
-cd workbuddy-bg-injector
+git clone https://github.com/YiIimini/workbuddy-WorkBuddy+.git
+cd workbuddy-WorkBuddy+
 
 # 2. 安装依赖（chrome-remote-interface）
 cd /Users/x/.workbuddy/binaries/node/workspace
@@ -170,7 +170,7 @@ bash launcher.sh --help   # 显示帮助
 ## 文件结构
 
 ```
-bg-injector/
+WorkBuddy+/
 ├── daemon.js                # CDP 注入守护进程（核心）
 ├── tray-daemon.js           # 托盘守护进程（常驻后台，自动监控）
 ├── settings.html            # 设置面板（Web UI）
