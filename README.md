@@ -64,13 +64,36 @@ bash launcher.sh
 
 ### 使用
 
+#### 方式 1：Web 设置面板（推荐）
+
 1. **启动**：双击 `~/Applications/WorkBuddy+.app`，或终端运行 `bash launcher.sh`
 2. **设置**：浏览器自动打开 `http://localhost:17890`
 3. **选择背景**：点击「浏览…」选择图片或视频文件
 4. **调节效果**：拖动滑块实时预览
 5. **保存**：点击「保存并应用」，背景即时生效
 
-### 命令行
+#### 方式 2：macOS 右键菜单（快捷）
+
+1. 在 Finder 中找到图片或视频文件
+2. **右键** → **服务** → **设为 WorkBuddy 背景**
+3. 自动检测文件类型并应用
+
+#### 方式 3：命令行脚本
+
+```bash
+# 设置背景
+bash set-background.sh /path/to/image.jpg
+bash set-background.sh /path/to/video.mp4
+
+# 查看当前配置
+cat config.json
+```
+
+#### 方式 4：直接编辑配置文件
+
+编辑 `config.json`，保存后自动生效（无需重启）。
+
+### 启动器命令
 
 ```bash
 bash launcher.sh          # 正常启动
@@ -112,13 +135,20 @@ bash launcher.sh --help   # 显示帮助
 
 ```
 bg-injector/
-├── daemon.js          # CDP 注入守护进程（核心）
-├── settings.html      # 设置面板（Web UI）
-├── launcher.sh        # 启动脚本
-├── config.json        # 背景配置
-├── daemon.log         # 运行日志（自动生成）
-├── daemon.pid         # 进程 PID（自动生成）
-└── README.md          # 本文件
+├── daemon.js            # CDP 注入守护进程（核心）
+├── settings.html        # 设置面板（Web UI）
+├── launcher.sh          # 启动脚本
+├── set-background.sh    # 快速设置背景脚本（右键菜单调用）
+├── config.json          # 背景配置
+├── daemon.log           # 运行日志（自动生成）
+├── daemon.pid           # 进程 PID（自动生成）
+└── README.md            # 本文件
+```
+
+**系统级集成：**
+```
+~/Library/Services/
+└── 设为 WorkBuddy 背景.workflow/  # macOS 右键菜单 Quick Action
 ```
 
 ## 工作原理
