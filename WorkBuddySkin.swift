@@ -92,7 +92,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ])
 
         let main = NSStackView(); main.orientation = .vertical; main.spacing = 14
-        main.edgeInsets = NSEdgeInsets(top: 16, left: 24, bottom: 16, right: 24)
+        main.edgeInsets = NSEdgeInsets(top: 36, left: 24, bottom: 16, right: 24)
         main.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(main)
         NSLayoutConstraint.activate([
@@ -249,7 +249,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let l = NSTextField(labelWithString: title); l.font = NSFont.systemFont(ofSize: 11); l.textColor = .textLabel
         v.addArrangedSubview(l)
         let s = NSSlider(value: initVal, minValue: min, maxValue: max, target: self, action: #selector(sliderChanged))
-        s.widthAnchor.constraint(greaterThanOrEqualToConstant: 120).isActive = true
+        s.widthAnchor.constraint(equalToConstant: 280).isActive = true
         v.addArrangedSubview(s)
         let vl = NSTextField(labelWithString: "\(Int(initVal))%")
         vl.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular); vl.textColor = .textLabel
