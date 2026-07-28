@@ -1,7 +1,7 @@
 on open droppedFiles
 	try
 		set filePath to POSIX path of (item 1 of droppedFiles as alias)
-		set scriptPath to "/Users/x/Documents/WorkBuddy/WorkBuddy+/set-background.sh"
+		set scriptPath to "~/WorkBuddy+/set-background.sh"
 		set logFile to "/tmp/workbuddy-bg-set.log"
 
 		-- 记录日志
@@ -24,7 +24,7 @@ on run
 	try
 		set selectedFile to choose file with prompt "选择背景图片或视频:" of type {"public.image", "public.movie"}
 		set filePath to POSIX path of selectedFile
-		set scriptPath to "/Users/x/Documents/WorkBuddy/WorkBuddy+/set-background.sh"
+		set scriptPath to "~/WorkBuddy+/set-background.sh"
 		set logFile to "/tmp/workbuddy-bg-set.log"
 
 		-- 记录日志

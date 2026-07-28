@@ -66,7 +66,7 @@ on startWorkBuddyPlus()
 	delay 2
 
 	-- 启动 WorkBuddy + 守护进程
-	do shell script "bash /Users/x/Documents/WorkBuddy/WorkBuddy+/launcher.sh > /tmp/workbuddy-plus-launch.log 2>&1 &"
+	do shell script "bash ~/WorkBuddy+/launcher.sh > /tmp/workbuddy-plus-launch.log 2>&1 &"
 
 	display notification "WorkBuddy+ 正在启动..." with title "WorkBuddy+" sound name "Glass"
 
@@ -117,9 +117,9 @@ on quitWorkBuddy()
 end quitWorkBuddy
 
 on startDaemonOnly()
-	do shell script "/Users/x/.workbuddy/binaries/node/versions/22.22.2/bin/node /Users/x/Documents/WorkBuddy/WorkBuddy+/daemon.js > /Users/x/Documents/WorkBuddy/WorkBuddy+/daemon.log 2>&1 &"
+	do shell script "/Users/x/.workbuddy/binaries/node/versions/22.22.2/bin/node ~/WorkBuddy+/daemon.js > ~/WorkBuddy+/daemon.log 2>&1 &"
 	delay 1
-	do shell script "pgrep -f 'node.*daemon.js' > /Users/x/Documents/WorkBuddy/WorkBuddy+/daemon.pid"
+	do shell script "pgrep -f 'node.*daemon.js' > ~/WorkBuddy+/daemon.pid"
 end startDaemonOnly
 
 on checkPort(port)
