@@ -1,15 +1,21 @@
 import Cocoa
 import UniformTypeIdentifiers
+import AVFoundation
 
-// ─── 颜色 ──────────────────────────────────────────────────
+// ─── 颜色（提高对比度）──────────────────────────────────────
 extension NSColor {
-    static let bgDark = NSColor(red: 0.06, green: 0.04, blue: 0.10, alpha: 1.0)
-    static let bgCard = NSColor(red: 0.12, green: 0.08, blue: 0.18, alpha: 0.9)
+    static let bgDark = NSColor(red: 0.08, green: 0.06, blue: 0.12, alpha: 1.0)
+    static let bgCard = NSColor(red: 0.14, green: 0.10, blue: 0.20, alpha: 1.0)
+    static let bgInput = NSColor(red: 0.18, green: 0.14, blue: 0.26, alpha: 1.0)
     static let accentPink = NSColor(red: 1.0, green: 0.42, blue: 0.65, alpha: 1.0)
-    static let textPrimary = NSColor(red: 0.91, green: 0.88, blue: 0.94, alpha: 1.0)
-    static let textSecondary = NSColor(red: 0.54, green: 0.50, blue: 0.63, alpha: 1.0)
-    static let statusOk = NSColor(red: 0.29, green: 0.87, blue: 0.50, alpha: 1.0)
-    static let statusErr = NSColor(red: 0.97, green: 0.55, blue: 0.55, alpha: 1.0)
+    static let accentPurple = NSColor(red: 0.75, green: 0.52, blue: 0.99, alpha: 1.0)
+    // 文字颜色：更亮，确保可读性
+    static let textTitle = NSColor.white
+    static let textBody = NSColor(red: 0.95, green: 0.93, blue: 0.97, alpha: 1.0)
+    static let textLabel = NSColor(red: 0.85, green: 0.82, blue: 0.90, alpha: 1.0)
+    static let textHint = NSColor(red: 0.65, green: 0.62, blue: 0.72, alpha: 1.0)
+    static let statusOk = NSColor(red: 0.30, green: 0.90, blue: 0.55, alpha: 1.0)
+    static let statusErr = NSColor(red: 1.0, green: 0.50, blue: 0.50, alpha: 1.0)
 }
 
 // ─── 状态卡片 ──────────────────────────────────────────────
@@ -23,20 +29,20 @@ class StatusCard: NSView {
         layer?.backgroundColor = NSColor.bgCard.cgColor
         layer?.cornerRadius = 10
         layer?.borderWidth = 1
-        layer?.borderColor = NSColor.accentPink.withAlphaComponent(0.12).cgColor
+        layer?.borderColor = NSColor.accentPink.withAlphaComponent(0.15).cgColor
 
         titleLabel.stringValue = title
-        titleLabel.font = NSFont.systemFont(ofSize: 11)
-        titleLabel.textColor = .textSecondary
+        titleLabel.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        titleLabel.textColor = .textHint
         titleLabel.alignment = .center
-        titleLabel.frame = NSRect(x: 8, y: bounds.height - 22, width: bounds.width - 16, height: 14)
+        titleLabel.frame = NSRect(x: 8, y: bounds.height - 20, width: bounds.width - 16, height: 14)
         addSubview(titleLabel)
 
         valueLabel.stringValue = "—"
         valueLabel.font = NSFont.boldSystemFont(ofSize: 14)
-        valueLabel.textColor = .textSecondary
+        valueLabel.textColor = .textBody
         valueLabel.alignment = .center
-        valueLabel.frame = NSRect(x: 8, y: 14, width: bounds.width - 16, height: 22)
+        valueLabel.frame = NSRect(x: 8, y: 12, width: bounds.width - 16, height: 22)
         addSubview(valueLabel)
     }
 
@@ -62,7 +68,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var startButton: NSButton!
     var selectFileButton: NSButton!
     var clearButton: NSButton!
-    var openWebButton: NSButton!
     var enabledCheckbox: NSButton!
     var opacitySlider: NSSlider!
     var overlaySlider: NSSlider!
@@ -72,6 +77,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var scalePopup: NSPopUpButton!
     var positionPopup: NSPopUpButton!
     var fileLabel: NSTextField!
+
+    // 预览
+    var previewView: NSView!
+    var previewImageView: NSImageView!
 
     let daemonURL = "http://localhost:17890"
     var currentConfig: [String: Any] = [:]
@@ -92,7 +101,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // ─── 窗口 ──────────────────────────────────────────────
     func createWindow() {
         let W: CGFloat = 720
-        let H: CGFloat = 780
+        let H: CGFloat = 880
 
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: W, height: H),
@@ -101,6 +110,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             defer: false
         )
         window.title = "WorkBuddy-Skin"
+        window.titlebarAppearsTransparent = true
         window.center()
         window.minSize = NSSize(width: W, height: H)
         window.maxSize = NSSize(width: W, height: H)
@@ -111,24 +121,47 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.contentView = bg
 
         let p: CGFloat = 24
-        var y: CGFloat = H - p
+        var y: CGFloat = H - p - 10
 
         // 标题
-        let titleLabel = makeLabel("WorkBuddy-Skin", size: 28, bold: true, color: .textPrimary)
+        let titleLabel = makeLabel("WorkBuddy-Skin", size: 28, bold: true, color: .textTitle)
         titleLabel.alignment = .center
-        titleLabel.frame = NSRect(x: p, y: y - 38, width: W - p*2, height: 36)
+        titleLabel.frame = NSRect(x: p, y: y - 36, width: W - p*2, height: 34)
         bg.addSubview(titleLabel)
-        y -= 46
+        y -= 44
 
-        let subLabel = makeLabel("背景注入管理器 v2.1", size: 13, bold: false, color: .textSecondary)
+        let subLabel = makeLabel("背景注入管理器 v2.2", size: 13, bold: false, color: .textHint)
         subLabel.alignment = .center
         subLabel.frame = NSRect(x: p, y: y - 16, width: W - p*2, height: 14)
         bg.addSubview(subLabel)
-        y -= 32
+        y -= 28
 
-        // 状态卡片
+        // ── 预览区 ──
+        let previewH: CGFloat = 180
+        previewView = NSView(frame: NSRect(x: p, y: y - previewH, width: W - p*2, height: previewH))
+        previewView.wantsLayer = true
+        previewView.layer?.backgroundColor = NSColor.bgCard.cgColor
+        previewView.layer?.cornerRadius = 12
+        previewView.layer?.borderWidth = 1
+        previewView.layer?.borderColor = NSColor.accentPink.withAlphaComponent(0.15).cgColor
+        bg.addSubview(previewView)
+
+        previewImageView = NSImageView(frame: NSRect(x: 0, y: 0, width: previewView.bounds.width, height: previewView.bounds.height))
+        previewImageView.imageScaling = .scaleProportionallyUpOrDown
+        previewImageView.imageAlignment = .alignCenter
+        previewView.addSubview(previewImageView)
+
+        let noPreviewLabel = makeLabel("选择文件后显示预览", size: 14, bold: false, color: .textHint)
+        noPreviewLabel.alignment = .center
+        noPreviewLabel.tag = 999
+        noPreviewLabel.frame = NSRect(x: 0, y: previewH/2 - 10, width: previewView.bounds.width, height: 20)
+        previewView.addSubview(noPreviewLabel)
+
+        y -= previewH + 20
+
+        // ── 状态卡片 ──
         let cardW: CGFloat = (W - p*2 - 30) / 4
-        let cardH: CGFloat = 64
+        let cardH: CGFloat = 60
         let gap: CGFloat = 10
 
         wbCard = StatusCard(title: "WorkBuddy", frame: NSRect(x: p, y: y - cardH, width: cardW, height: cardH))
@@ -139,65 +172,64 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         bg.addSubview(cdpCard)
         bg.addSubview(daemonCard)
         bg.addSubview(bgCard)
-        y -= cardH + 24
+        y -= cardH + 20
 
-        // 快速操作
+        // ── 快速操作 ──
         y = addSection("快速操作", x: p, y: y, w: W - p*2, view: bg)
-        let btnW = (W - p*2 - gap*2) / 3
+        let btnW = (W - p*2 - gap) / 2
         let btnH: CGFloat = 36
 
-        startButton = makeButton("🚀 启动", frame: NSRect(x: p, y: y - btnH, width: btnW, height: btnH), action: #selector(startWorkBuddy))
-        openWebButton = makeButton("🌐 Web 面板", frame: NSRect(x: p + btnW + gap, y: y - btnH, width: btnW, height: btnH), action: #selector(openWebPanel))
-        let refreshButton = makeButton("🔄 刷新", frame: NSRect(x: p + (btnW+gap)*2, y: y - btnH, width: btnW, height: btnH), action: #selector(refreshStatus))
+        startButton = makeButton("🚀 启动 WorkBuddy", frame: NSRect(x: p, y: y - btnH, width: btnW, height: btnH), action: #selector(startWorkBuddy))
+        let refreshButton = makeButton("🔄 刷新状态", frame: NSRect(x: p + btnW + gap, y: y - btnH, width: btnW, height: btnH), action: #selector(refreshStatus))
         bg.addSubview(startButton)
-        bg.addSubview(openWebButton)
         bg.addSubview(refreshButton)
-        y -= btnH + 24
+        y -= btnH + 20
 
-        // 背景设置
+        // ── 背景设置 ──
         y = addSection("背景设置", x: p, y: y, w: W - p*2, view: bg)
 
-        fileLabel = makeLabel("📄 未选择文件", size: 13, bold: false, color: .textSecondary)
+        fileLabel = makeLabel("📄 未选择文件", size: 13, bold: false, color: .textLabel)
         fileLabel.lineBreakMode = .byTruncatingTail
-        fileLabel.frame = NSRect(x: p, y: y - 20, width: W - p*2, height: 18)
+        fileLabel.frame = NSRect(x: p, y: y - 18, width: W - p*2, height: 16)
         bg.addSubview(fileLabel)
-        y -= 28
+        y -= 26
 
         selectFileButton = makeButton("📁 选择文件", frame: NSRect(x: p, y: y - btnH, width: btnW, height: btnH), action: #selector(selectFile))
-        clearButton = makeButton("🗑️ 清除", frame: NSRect(x: p + btnW + gap, y: y - btnH, width: btnW, height: btnH), action: #selector(clearBackground))
+        clearButton = makeButton("🗑️ 清除背景", frame: NSRect(x: p + btnW + gap, y: y - btnH, width: btnW, height: btnH), action: #selector(clearBackground))
         bg.addSubview(selectFileButton)
         bg.addSubview(clearButton)
-        y -= btnH + 16
+        y -= btnH + 14
 
         enabledCheckbox = NSButton(checkboxWithTitle: "启用背景", target: self, action: #selector(updateConfig))
         enabledCheckbox.frame = NSRect(x: p, y: y - 22, width: 200, height: 22)
+        styleCheckbox(enabledCheckbox)
         bg.addSubview(enabledCheckbox)
-        y -= 34
+        y -= 32
 
         // 滑块行
-        opacityValueLabel = makeLabel("100%", size: 12, bold: false, color: .textSecondary)
+        opacityValueLabel = makeLabel("100%", size: 12, bold: false, color: .textLabel)
         opacityValueLabel.alignment = .right
-        opacitySlider = makeSliderRow("不透明度", valueLabel: opacityValueLabel, x: p, y: y, w: W - p*2, view: bg, min: 10, max: 100, init: 100)
+        opacitySlider = makeSliderRow("不透明度", valueLabel: opacityValueLabel, x: p, y: y, w: W - p*2, view: bg, min: 10, max: 100, initVal: 100)
         opacitySlider.target = self
         opacitySlider.action = #selector(sliderChanged)
-        y -= 36
+        y -= 34
 
-        overlayValueLabel = makeLabel("50%", size: 12, bold: false, color: .textSecondary)
+        overlayValueLabel = makeLabel("50%", size: 12, bold: false, color: .textLabel)
         overlayValueLabel.alignment = .right
-        overlaySlider = makeSliderRow("暗色遮罩", valueLabel: overlayValueLabel, x: p, y: y, w: W - p*2, view: bg, min: 0, max: 80, init: 50)
+        overlaySlider = makeSliderRow("暗色遮罩", valueLabel: overlayValueLabel, x: p, y: y, w: W - p*2, view: bg, min: 0, max: 80, initVal: 50)
         overlaySlider.target = self
         overlaySlider.action = #selector(sliderChanged)
-        y -= 36
+        y -= 34
 
         blurPopup = makePopupRow("模糊", items: ["无", "轻微 (5px)", "中等 (10px)", "强烈 (20px)"], x: p, y: y, w: W - p*2, view: bg)
         blurPopup.target = self
         blurPopup.action = #selector(updateConfig)
-        y -= 34
+        y -= 32
 
         scalePopup = makePopupRow("填充方式", items: ["覆盖", "包含", "填充"], x: p, y: y, w: W - p*2, view: bg)
         scalePopup.target = self
         scalePopup.action = #selector(updateConfig)
-        y -= 34
+        y -= 32
 
         positionPopup = makePopupRow("位置", items: ["居中", "顶部", "底部", "左侧", "右侧"], x: p, y: y, w: W - p*2, view: bg)
         positionPopup.target = self
@@ -224,6 +256,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return btn
     }
 
+    func styleCheckbox(_ cb: NSButton) {
+        // 系统默认
+    }
+
     func addSection(_ title: String, x: CGFloat, y: CGFloat, w: CGFloat, view: NSView) -> CGFloat {
         let label = makeLabel(title, size: 15, bold: true, color: .accentPink)
         label.frame = NSRect(x: x, y: y - 20, width: w, height: 18)
@@ -231,8 +267,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return y - 28
     }
 
-    func makeSliderRow(_ title: String, valueLabel: NSTextField, x: CGFloat, y: CGFloat, w: CGFloat, view: NSView, min: Double, max: Double, init: Double) -> NSSlider {
-        let titleLabel = makeLabel(title, size: 13, bold: false, color: .textPrimary)
+    func makeSliderRow(_ title: String, valueLabel: NSTextField, x: CGFloat, y: CGFloat, w: CGFloat, view: NSView, min: Double, max: Double, initVal: Double) -> NSSlider {
+        let titleLabel = makeLabel(title, size: 13, bold: false, color: .textLabel)
         titleLabel.frame = NSRect(x: x, y: y - 18, width: 90, height: 16)
         view.addSubview(titleLabel)
 
@@ -242,13 +278,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let slider = NSSlider(frame: NSRect(x: x + 100, y: y - 20, width: w - 160, height: 20))
         slider.minValue = min
         slider.maxValue = max
-        slider.doubleValue = `init`
+        slider.doubleValue = initVal
         view.addSubview(slider)
         return slider
     }
 
     func makePopupRow(_ title: String, items: [String], x: CGFloat, y: CGFloat, w: CGFloat, view: NSView) -> NSPopUpButton {
-        let titleLabel = makeLabel(title, size: 13, bold: false, color: .textPrimary)
+        let titleLabel = makeLabel(title, size: 13, bold: false, color: .textLabel)
         titleLabel.frame = NSRect(x: x, y: y - 18, width: 90, height: 16)
         view.addSubview(titleLabel)
 
@@ -259,13 +295,67 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return popup
     }
 
+    // ─── 预览 ─────────────────────────────────────────────
+    func showPreview(_ path: String) {
+        // 移除旧预览
+        previewImageView.image = nil
+        if let oldLabel = previewView.viewWithTag(999) {
+            oldLabel.removeFromSuperview()
+        }
+
+        let ext = (path as NSString).pathExtension.lowercased()
+        let isVideo = ["mp4", "webm", "mov", "avi", "mkv", "m4v"].contains(ext)
+
+        if isVideo {
+            // 生成视频缩略图
+            DispatchQueue.global().async {
+                let url = URL(fileURLWithPath: path)
+                let asset = AVAsset(url: url)
+                let generator = AVAssetImageGenerator(asset: asset)
+                generator.appliesPreferredTrackTransform = true
+                generator.maximumSize = CGSize(width: 400, height: 200)
+
+                do {
+                    let cgImage = try generator.copyCGImage(at: CMTime(seconds: 0.5, preferredTimescale: 600), actualTime: nil)
+                    let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
+                    DispatchQueue.main.async {
+                        self.previewImageView.image = image
+                    }
+                } catch {
+                    DispatchQueue.main.async {
+                        self.showNoPreview("🎬 无法生成视频预览")
+                    }
+                }
+            }
+        } else {
+            // 图片直接显示
+            if let image = NSImage(contentsOfFile: path) {
+                previewImageView.image = image
+            } else {
+                showNoPreview("🖼️ 无法加载图片")
+            }
+        }
+    }
+
+    func showNoPreview(_ text: String) {
+        let label = makeLabel(text, size: 14, bold: false, color: .textHint)
+        label.alignment = .center
+        label.tag = 999
+        label.frame = NSRect(x: 0, y: previewView.bounds.height/2 - 10, width: previewView.bounds.width, height: 20)
+        previewView.addSubview(label)
+    }
+
+    func clearPreview() {
+        previewImageView.image = nil
+        showNoPreview("选择文件后显示预览")
+    }
+
     // ─── 启动 WorkBuddy ────────────────────────────────────
     @objc func startWorkBuddy() {
         startButton.isEnabled = false
         startButton.title = "⏳ 启动中..."
 
         DispatchQueue.global().async {
-            // 退出 WorkBuddy
             let quit = Process()
             quit.launchPath = "/usr/bin/osascript"
             quit.arguments = ["-e", "tell application \"WorkBuddy\" to quit"]
@@ -275,7 +365,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             quit.waitUntilExit()
             Thread.sleep(forTimeInterval: 3)
 
-            // 启动
             let task = Process()
             task.launchPath = "/bin/bash"
             task.arguments = ["\(NSHomeDirectory())/WorkBuddy-Skin/launcher.sh"]
@@ -292,7 +381,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             DispatchQueue.main.async {
                 self.startButton.isEnabled = true
-                self.startButton.title = "🚀 启动"
+                self.startButton.title = "🚀 启动 WorkBuddy"
                 self.refreshStatus()
             }
         }
@@ -316,10 +405,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc func openWebPanel() {
-        NSWorkspace.shared.open(URL(string: daemonURL)!)
-    }
-
+    // ─── 选择文件 ──────────────────────────────────────────
     @objc func selectFile() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
@@ -338,6 +424,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.currentConfig["enabled"] = true
                 self.enabledCheckbox.state = .on
                 self.fileLabel.stringValue = (isVideo ? "🎬 " : "🖼️ ") + url.lastPathComponent
+                self.showPreview(url.path)
                 self.updateConfig()
             }
         }
@@ -348,6 +435,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         currentConfig["source"] = ""
         enabledCheckbox.state = .off
         fileLabel.stringValue = "📄 未选择文件"
+        clearPreview()
         updateConfig()
     }
 
@@ -390,6 +478,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if let source = json["source"] as? String, !source.isEmpty {
                     let isVideo = (json["type"] as? String) == "video"
                     self.fileLabel.stringValue = (isVideo ? "🎬 " : "🖼️ ") + (source as NSString).lastPathComponent
+                    self.showPreview(source)
                 }
 
                 let blurValues = ["0px", "5px", "10px", "20px"]
