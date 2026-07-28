@@ -119,24 +119,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         bg.addSubview(filePathLabel); y -= 24
 
         // 启动/停止背景 + 文字自动配色 + 取色板
-        startButton = makeButton("启动背景", symbol: "play.rectangle", frame: NSRect(x: p, y: y - btnH, width: btnW, height: btnH), action: #selector(toggleBackground))
+        let actW: CGFloat = (W - p*2 - gap) / 2
+        startButton = makeButton("启动背景", symbol: "play.rectangle", frame: NSRect(x: p, y: y - btnH, width: actW, height: btnH), action: #selector(toggleBackground))
         bg.addSubview(startButton)
 
-        autoTextCheckbox = makeButton("文字自动配色", symbol: "checkmark.square", frame: NSRect(x: p + btnW + gap, y: y - btnH, width: 140, height: btnH), action: #selector(autoTextChanged))
+        autoTextCheckbox = makeButton("文字自动配色", symbol: "checkmark.square", frame: NSRect(x: p + actW + gap, y: y - btnH, width: actW, height: btnH), action: #selector(autoTextChanged))
         autoTextCheckbox.image = NSImage(systemSymbolName: "checkmark.square.fill", accessibilityDescription: nil)
         autoTextCheckbox.state = .on
         bg.addSubview(autoTextCheckbox)
 
-        textColorWell = NSColorWell(frame: NSRect(x: p + btnW + gap + 148, y: y - 26, width: 40, height: 26))
+        textColorWell = NSColorWell(frame: NSRect(x: p + actW*2 + gap*2, y: y - 26, width: 40, height: 26))
         textColorWell.color = .white; textColorWell.isEnabled = false
         textColorWell.target = self; textColorWell.action = #selector(updateConfig)
         bg.addSubview(textColorWell)
-        y -= btnH + 2
 
         let wellHint = makeLabel("点击选色后自动关闭文字自动配色", size: 10, bold: false, color: .textHint)
-        wellHint.frame = NSRect(x: p + btnW + gap, y: y - 14, width: W - p*2 - btnW - gap, height: 14)
+        wellHint.frame = NSRect(x: p + actW*2 + gap*2 + 46, y: y - 20, width: W - p*2 - actW*2 - gap*2 - 46, height: 14)
         bg.addSubview(wellHint)
-        y -= 14
+        y -= btnH + 12
 
         // 主题 + 模糊 + 填充 + 位置（一行四个）
         let popW: CGFloat = (W - p*2 - gap*3) / 4
