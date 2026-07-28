@@ -181,11 +181,12 @@ function buildInjectScript() {
 
   var cssActivated = [
     cssVars,
-    // === body::before 背景层（伪元素，不被 React 移除）===
+    // === body::before 背景层 ===
     'body::before {',
     '  content: ""; position: fixed; inset: 0; z-index: -2147483648; pointer-events: none;',
     '  background-size: cover; background-position: center; background-repeat: no-repeat;',
     '  background-image: var(--wb-bg-art, none);',
+    '  opacity: var(--wb-bg-opacity, 1);',
     '}',
     // 视频背景层（仍用 div，因为伪元素不能放 video）
     '#wb-bg-layer {',
@@ -387,56 +388,66 @@ function buildInjectScript() {
   }
 
   function ensureMedia(layer) {
-    if (!currentConfig || !currentConfig.enabled || !currentConfig.source) return;
-
-    var cfg = currentConfig;
-    var src = currentFileUri || ('file://' + cfg.source);
-
-    // 图片使用 body::before CSS 变量（伪元素不会被 React 移除）
-    if (cfg.type === 'image') {
-      document.documentElement.style.setProperty('--wb-bg-art', 'url(' + src + ')');
-      layer.style.display = 'none'; // 图片不需要 div 层
-      if (cfg.blur && cfg.blur !== '0px') {
-        document.documentElement.style.setProperty('filter', 'blur(' + cfg.blur + ')');
-      }
+    if (!currentConfig || !currentConfig.enabled || !currentConfig.source) {
+      document.documentElement.style.removeProperty('--wb-bg-art');
+      document.documentElement.style.removeProperty('--wb-bg-opacity');
+      layer.style.display = 'none';
+      var ov = document.getElementById('wb-bg-overlay');
+      if (ov) ov.style.background = 'rgba(0,0,0,0)';
       return;
     }
 
-    // 视频使用 div 层
-    var expectedTag = 'video';
-    var media = layer.querySelector('video, img');
-    var needRebuild = !media || media.tagName.toLowerCase() !== expectedTag || lastMediaSrc !== src;
+    var cfg = currentConfig;
+    var src = currentFileUri || ('file://' + cfg.source);
+    var opacity = cfg.opacity != null ? cfg.opacity : 1;
+    var overlayAlpha = cfg.overlay != null ? cfg.overlay : 0.25;
 
-    if (needRebuild) {
-      if (media) media.remove();
-      media = document.createElement('video');
-      media.autoplay = true;
-      media.loop = true;
-      media.muted = true;
-      media.playsInline = true;
-      media.setAttribute('muted', '');
-      media.style.cssText = 'width:100%;height:100%;object-fit:' + (cfg.scale || 'cover') + ';object-position:' + (cfg.position || 'center') + ';display:block;';
+    // 图片使用 body::before CSS 变量
+    if (cfg.type === 'image') {
+      document.documentElement.style.setProperty('--wb-bg-art', 'url(' + src + ')');
+      document.documentElement.style.setProperty('--wb-bg-opacity', String(opacity));
+      layer.style.display = 'none';
       if (cfg.blur && cfg.blur !== '0px') {
-        media.style.filter = 'blur(' + cfg.blur + ')';
-        media.style.transform = 'scale(1.05)';
+        document.documentElement.style.setProperty('filter', 'blur(' + cfg.blur + ')');
       }
-      media.src = src;
-      lastMediaSrc = src;
-      media.play().catch(function(){});
-      layer.appendChild(media);
     } else {
-      if (media) {
-        media.style.objectFit = cfg.scale || 'cover';
-        media.style.objectPosition = cfg.position || 'center';
+      // 视频使用 div 层
+      document.documentElement.style.removeProperty('--wb-bg-art');
+      var expectedTag = 'video';
+      var media = layer.querySelector('video, img');
+      var needRebuild = !media || media.tagName.toLowerCase() !== expectedTag || lastMediaSrc !== src;
+
+      if (needRebuild) {
+        if (media) media.remove();
+        media = document.createElement('video');
+        media.autoplay = true;
+        media.loop = true;
+        media.muted = true;
+        media.playsInline = true;
+        media.setAttribute('muted', '');
+        media.style.cssText = 'width:100%;height:100%;object-fit:' + (cfg.scale || 'cover') + ';object-position:' + (cfg.position || 'center') + ';display:block;';
+        if (cfg.blur && cfg.blur !== '0px') {
+          media.style.filter = 'blur(' + cfg.blur + ')';
+          media.style.transform = 'scale(1.05)';
+        }
+        media.src = src;
+        lastMediaSrc = src;
+        media.play().catch(function(){});
+        layer.appendChild(media);
+      } else {
+        if (media) {
+          media.style.objectFit = cfg.scale || 'cover';
+          media.style.objectPosition = cfg.position || 'center';
+        }
       }
+
+      layer.style.display = 'block';
+      layer.style.opacity = String(opacity);
     }
 
-    // 清除 body::before 的图片背景（视频用 div 层）
-    document.documentElement.style.removeProperty('--wb-bg-art');
-    layer.style.display = 'block';
-    layer.style.opacity = String(cfg.opacity != null ? cfg.opacity : 1);
+    // 始终更新遮罩层
     var ov = document.getElementById('wb-bg-overlay');
-    if (ov) ov.style.background = 'rgba(0,0,0,' + (cfg.overlay != null ? cfg.overlay : 0.25) + ')';
+    if (ov) ov.style.background = 'rgba(0,0,0,' + overlayAlpha + ')';
   }
 
   // 强制清理遮挡背景的元素（JS 直接设置 inline style，优先级最高）
