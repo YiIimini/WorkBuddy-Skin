@@ -114,6 +114,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // 文件路径
         filePathLabel = makeLabel("未选择文件", size: 12, bold: false, color: .textHint)
         filePathLabel.lineBreakMode = .byTruncatingMiddle
+        filePathLabel.alignment = .center
         filePathLabel.frame = NSRect(x: p, y: y - 18, width: W - p*2, height: 16)
         bg.addSubview(filePathLabel); y -= 24
 
@@ -177,14 +178,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         y -= cardH + 16
 
         // ━━ 页脚 ━━
-        let footer = makeLabel("YiIimini", size: 11, bold: false, color: .textHint)
+        let footer = makeLabel("YiIimini  |  GitHub", size: 11, bold: false, color: .textHint)
         footer.frame = NSRect(x: p, y: y - 16, width: W - p*2, height: 14)
         footer.alignment = .center
-        // 点击打开 GitHub
-        let githubAttr = NSMutableAttributedString(string: "YiIimini")
-        githubAttr.addAttribute(.link, value: "https://github.com/YiIimini", range: NSRange(location: 0, length: githubAttr.length))
-        githubAttr.addAttribute(.foregroundColor, value: NSColor.textHint, range: NSRange(location: 0, length: githubAttr.length))
-        footer.attributedStringValue = githubAttr
+        let attr = NSMutableAttributedString(string: "YiIimini  |  GitHub")
+        attr.addAttribute(.link, value: "https://github.com/YiIimini/WorkBuddy-Skin", range: (attr.string as NSString).range(of: "GitHub"))
+        attr.addAttribute(.foregroundColor, value: NSColor.textHint, range: NSRange(location: 0, length: attr.length))
+        attr.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: (attr.string as NSString).range(of: "GitHub"))
+        footer.attributedStringValue = attr
         footer.allowsEditingTextAttributes = true; footer.isSelectable = true
         bg.addSubview(footer)
 
@@ -235,7 +236,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             else { button.title = "✦" }
         }
         let menu = NSMenu()
-        let openItem = NSMenuItem(title: "打开管理器", action: #selector(showWindow), keyEquivalent: "")
+        let openItem = NSMenuItem(title: "打开应用窗口", action: #selector(showWindow), keyEquivalent: "o")
         openItem.target = self; menu.addItem(openItem); menu.addItem(NSMenuItem.separator())
         let injectItem = NSMenuItem(title: "CDP 注入启动", action: #selector(menuStartWorkBuddy), keyEquivalent: "")
         injectItem.target = self; menu.addItem(injectItem)
