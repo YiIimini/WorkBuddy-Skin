@@ -136,201 +136,157 @@ function buildInjectScript() {
   if (window.__wbBgInjected) { return; }
   window.__wbBgInjected = true;
 
-  var DAEMON = 'http://localhost:${HTTP_PORT}';
   var currentConfig = null;
+  var currentFileUri = null;
 
-  var bgLayer = document.createElement('div');
-  bgLayer.id = 'wb-bg-layer';
-  bgLayer.style.cssText = 'position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;background:#000;';
-  var bgMedia = null;
-
-  var overlay = document.createElement('div');
-  overlay.id = 'wb-bg-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:0;pointer-events:none;background:rgba(0,0,0,0);transition:background 0.4s ease;';
-
+  // CSS 样式（一次性注入，持久生效）
   var style = document.createElement('style');
   style.id = 'wb-bg-transparent-css';
   style.textContent = [
-    '/* 强制透明化所有可能的容器 */',
     'html, body { background: transparent !important; }',
-    'body[data-application-name=workbuddy] { background: transparent !important; }',
-    '#root, #app, [id*="root"], [id*="app"] {',
-    '  background: transparent !important;',
-    '  position: relative;',
-    '  z-index: 2;',
-    '}',
-    '/* 清除所有直接子元素的背景 */',
-    'body > div:not(#wb-bg-layer):not(#wb-bg-overlay) {',
-    '  background: transparent !important;',
-    '}',
-    '/* 侧边栏 - 毛玻璃效果 */',
-    '[data-view-id=sidebar] {',
-    '  background: rgba(16,8,26,0.30) !important;',
-    '  backdrop-filter: blur(20px) saturate(1.12) !important;',
-    '  -webkit-backdrop-filter: blur(20px) saturate(1.12) !important;',
-    '  border: none !important;',
-    '}',
-    '/* 详情面板 */',
-    '[data-view-id=detail-panel] {',
-    '  background: rgba(16,8,26,0.50) !important;',
-    '  backdrop-filter: blur(18px) saturate(1.08) !important;',
-    '  -webkit-backdrop-filter: blur(18px) saturate(1.08) !important;',
-    '}',
-    '/* 主内容区 */',
+    '#root, #app, [id*="root"], [id*="app"] { background: transparent !important; position: relative; z-index: 2; }',
+    'body > div:not(#wb-bg-layer):not(#wb-bg-overlay) { background: transparent !important; }',
+    '[data-view-id=sidebar] { background: rgba(16,8,26,0.30) !important; backdrop-filter: blur(20px) saturate(1.12) !important; -webkit-backdrop-filter: blur(20px) saturate(1.12) !important; border: none !important; }',
+    '[data-view-id=detail-panel] { background: rgba(16,8,26,0.50) !important; backdrop-filter: blur(18px) saturate(1.08) !important; -webkit-backdrop-filter: blur(18px) saturate(1.08) !important; }',
     '[data-view-id=main-content] { background: transparent !important; }',
-    '/* 聊天输入框 */',
-    '.atm-modal-chat-input [class*="_mainArea_"],',
-    '.atm-modal-chat-input [class*="_content_"],',
-    '.atm-modal-chat-input textarea,',
-    '.atm-modal-chat-input [contenteditable] {',
-    '  --atm-surface: rgba(16,8,26,0.30) !important;',
-    '  --atm-chat-content-bg: rgba(16,8,26,0.30) !important;',
-    '  background: rgba(16,8,26,0.30) !important;',
-    '  backdrop-filter: blur(16px) saturate(1.2) !important;',
-    '  -webkit-backdrop-filter: blur(16px) saturate(1.2) !important;',
-    '}',
-    '/* 菜单 */',
-    '[role=listbox], [role=menu], .monaco-menu {',
-    '  background: rgba(16,8,26,0.45) !important;',
-    '  backdrop-filter: blur(12px) saturate(1.15) !important;',
-    '  -webkit-backdrop-filter: blur(12px) saturate(1.15) !important;',
-    '}',
-    '/* 确保背景层在最底层 */',
-    '#wb-bg-layer { z-index: -1 !important; }',
-    '#wb-bg-overlay { z-index: 0 !important; }',
+    '.atm-modal-chat-input [class*="_mainArea_"], .atm-modal-chat-input [class*="_content_"], .atm-modal-chat-input textarea, .atm-modal-chat-input [contenteditable] { --atm-surface: rgba(16,8,26,0.30) !important; --atm-chat-content-bg: rgba(16,8,26,0.30) !important; background: rgba(16,8,26,0.30) !important; backdrop-filter: blur(16px) saturate(1.2) !important; -webkit-backdrop-filter: blur(16px) saturate(1.2) !important; }',
+    '[role=listbox], [role=menu], .monaco-menu { background: rgba(16,8,26,0.45) !important; backdrop-filter: blur(12px) saturate(1.15) !important; -webkit-backdrop-filter: blur(12px) saturate(1.15) !important; }',
+    '#wb-bg-layer { position: fixed !important; inset: 0 !important; z-index: -1 !important; pointer-events: none !important; overflow: hidden !important; }',
+    '#wb-bg-overlay { position: fixed !important; inset: 0 !important; z-index: 0 !important; pointer-events: none !important; transition: background 0.4s ease; }',
   ].join('\\n');
-  document.head.appendChild(style);
 
-  function applyConfig(cfg, mediaDataUri) {
-    if (!cfg) return;
-    var changed = JSON.stringify(cfg) !== JSON.stringify(currentConfig);
+  function ensureStyle() {
+    if (!document.getElementById('wb-bg-transparent-css')) {
+      (document.head || document.documentElement).appendChild(style);
+    }
+  }
+
+  // 创建背景层（每次都重新创建，确保存在）
+  function createBgLayer() {
+    var layer = document.createElement('div');
+    layer.id = 'wb-bg-layer';
+    layer.style.cssText = 'position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;background:#000;';
+    return layer;
+  }
+
+  function createOverlay() {
+    var ov = document.createElement('div');
+    ov.id = 'wb-bg-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:0;pointer-events:none;background:rgba(0,0,0,0);transition:background 0.4s ease;';
+    return ov;
+  }
+
+  // 强制插入背景层（每 500ms 调用一次）
+  function ensureLayers() {
+    ensureStyle();
+
+    if (!document.body) return;
+
+    var layer = document.getElementById('wb-bg-layer');
+    var overlay = document.getElementById('wb-bg-overlay');
+
+    if (!layer) {
+      layer = createBgLayer();
+      document.body.insertBefore(layer, document.body.firstChild);
+    }
+
+    if (!overlay) {
+      overlay = createOverlay();
+      document.body.insertBefore(overlay, layer.nextSibling);
+    }
+
+    // 确保背景层在最前面（body 的第一个子元素）
+    if (document.body.firstChild !== layer) {
+      document.body.insertBefore(layer, document.body.firstChild);
+    }
+
+    // 检查是否有媒体元素，如果没有且有配置，则创建
+    if (currentConfig && currentConfig.enabled && currentConfig.source) {
+      var media = layer.querySelector('video, img');
+      if (!media) {
+        rebuildMedia(layer);
+      }
+    }
+  }
+
+  // 重建媒体元素
+  function rebuildMedia(layer) {
+    if (!currentConfig || !currentConfig.enabled || !currentConfig.source) return;
+
+    var cfg = currentConfig;
+    var src = currentFileUri || ('file://' + cfg.source);
+
+    // 清除旧的
+    var old = layer.querySelector('video, img');
+    if (old) old.remove();
+
+    var media;
+    if (cfg.type === 'video') {
+      media = document.createElement('video');
+      media.autoplay = true;
+      media.loop = true;
+      media.muted = true;
+      media.playsInline = true;
+      media.setAttribute('muted', '');
+    } else {
+      media = document.createElement('img');
+    }
+
+    media.style.cssText = 'width:100%;height:100%;object-fit:' + (cfg.scale || 'cover') + ';object-position:' + (cfg.position || 'center') + ';display:block;';
+
+    if (cfg.blur && cfg.blur !== '0px') {
+      media.style.filter = 'blur(' + cfg.blur + ')';
+      media.style.transform = 'scale(1.05)';
+    }
+
+    media.src = src;
+    if (cfg.type === 'video') {
+      media.play().catch(function(){});
+    }
+
+    layer.appendChild(media);
+
+    // 设置层样式
+    layer.style.display = 'block';
+    layer.style.opacity = String(cfg.opacity != null ? cfg.opacity : 1);
+
+    var overlay = document.getElementById('wb-bg-overlay');
+    if (overlay) {
+      overlay.style.background = 'rgba(0,0,0,' + (cfg.overlay != null ? cfg.overlay : 0.25) + ')';
+    }
+  }
+
+  // 应用配置
+  function applyConfig(cfg, fileUri) {
     currentConfig = cfg;
-    if (!changed && !mediaDataUri) return;
+    currentFileUri = fileUri;
 
-    if (!cfg.enabled || cfg.type === 'none' || !cfg.source) {
-      bgLayer.style.display = 'none';
-      overlay.style.background = 'rgba(0,0,0,0)';
+    if (!cfg || !cfg.enabled || cfg.type === 'none' || !cfg.source) {
+      var layer = document.getElementById('wb-bg-layer');
+      if (layer) layer.style.display = 'none';
+      var overlay = document.getElementById('wb-bg-overlay');
+      if (overlay) overlay.style.background = 'rgba(0,0,0,0)';
       return;
     }
-    bgLayer.style.display = 'block';
-    bgLayer.style.opacity = String(cfg.opacity != null ? cfg.opacity : 1);
-    overlay.style.background = 'rgba(0,0,0,' + (cfg.overlay != null ? cfg.overlay : 0.25) + ')';
 
-    // 优先使用 data URI，否则使用 HTTP URL
-    var src = mediaDataUri || (DAEMON + '/api/file?path=' + encodeURIComponent(cfg.source));
-    console.log('[wb-bg] 设置媒体源:', mediaDataUri ? 'data URI (base64)' : src);
-
-    var needNew = !bgMedia || bgMedia.tagName.toLowerCase() !== (cfg.type === 'video' ? 'video' : 'img');
-    if (needNew) {
-      console.log('[wb-bg] 创建新媒体元素:', cfg.type);
-      if (bgMedia) bgMedia.remove();
-      if (cfg.type === 'video') {
-        bgMedia = document.createElement('video');
-        bgMedia.autoplay = true;
-        bgMedia.loop = true;
-        bgMedia.muted = true;
-        bgMedia.playsInline = true;
-        bgMedia.setAttribute('muted', '');
-      } else {
-        bgMedia = document.createElement('img');
-      }
-      bgMedia.style.cssText = 'width:100%;height:100%;object-fit:' + (cfg.scale || 'cover') + ';object-position:' + (cfg.position || 'center') + ';display:block;';
-      bgLayer.appendChild(bgMedia);
-    }
-
-    if (bgMedia.tagName.toLowerCase() === 'video') {
-      if (bgMedia.src !== src) {
-        console.log('[wb-bg] 加载视频:', mediaDataUri ? 'data URI' : src);
-        bgMedia.src = src;
-        bgMedia.load();
-        bgMedia.play().then(function() {
-          console.log('[wb-bg] 视频播放成功');
-        }).catch(function(e) {
-          console.error('[wb-bg] 视频播放失败:', e);
-        });
-        bgMedia.onerror = function(e) {
-          console.error('[wb-bg] 视频加载错误:', e, bgMedia.error);
-        };
-        bgMedia.onloadeddata = function() {
-          console.log('[wb-bg] 视频数据已加载');
-        };
-      }
-    } else {
-      console.log('[wb-bg] 加载图片:', src);
-      bgMedia.src = src;
-      bgMedia.onload = function() {
-        console.log('[wb-bg] 图片加载成功');
-      };
-      bgMedia.onerror = function(e) {
-        console.error('[wb-bg] 图片加载失败:', e);
-      };
-    }
-    bgMedia.style.objectFit = cfg.scale || 'cover';
-    bgMedia.style.objectPosition = cfg.position || 'center';
-    if (cfg.blur && cfg.blur !== '0px') {
-      bgMedia.style.filter = 'blur(' + cfg.blur + ')';
-      bgMedia.style.transform = 'scale(1.05)';
-    } else {
-      bgMedia.style.filter = '';
-      bgMedia.style.transform = '';
+    ensureLayers();
+    var layer = document.getElementById('wb-bg-layer');
+    if (layer) {
+      rebuildMedia(layer);
     }
   }
 
-  function insertLayer() {
-    if (!document.body) { setTimeout(insertLayer, 200); return; }
-    if (!document.getElementById('wb-bg-layer')) {
-      document.body.insertBefore(bgLayer, document.body.firstChild);
-      document.body.insertBefore(overlay, bgLayer.nextSibling);
-      console.log('[wb-bg] 背景层已插入');
-
-      // 重新应用当前配置（如果有）
-      if (currentConfig) {
-        console.log('[wb-bg] 重新应用配置');
-        applyConfig(currentConfig, currentMediaDataUri);
-      }
-    }
-  }
-  insertLayer();
-
-  // 保存当前的 mediaDataUri
-  var currentMediaDataUri = null;
-
-  // 暴露配置应用函数供 CDP 调用
-  window.__wbBgApplyConfig = function(cfg, mediaDataUri) {
-    console.log('[wb-bg] 收到配置推送:', cfg, mediaDataUri ? 'with file://' : 'without file://');
-    currentMediaDataUri = mediaDataUri;
-    applyConfig(cfg, mediaDataUri);
+  // 暴露给 CDP 调用
+  window.__wbBgApplyConfig = function(cfg, fileUri) {
+    applyConfig(cfg, fileUri);
   };
 
-  // 强化的 MutationObserver：监控整个 DOM 树变化
-  var observer = new MutationObserver(function(mutations) {
-    var bgLayerExists = !!document.getElementById('wb-bg-layer');
-    if (!bgLayerExists) {
-      console.log('[wb-bg] 检测到背景层被移除，重新插入');
-      insertLayer();
-    }
-  });
+  // 启动：立即插入 + 每 500ms 检查
+  ensureLayers();
+  setInterval(ensureLayers, 500);
 
-  // 监控 body 的所有子元素变化（包括深层嵌套）
-  if (document.body) {
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,  // 改为 true，监控所有后代节点
-      attributes: false,
-      characterData: false
-    });
-    console.log('[wb-bg] MutationObserver 已启动（监控整个 DOM 树）');
-  }
-
-  // 定期检查（每 3 秒）作为后备机制
-  setInterval(function() {
-    if (!document.getElementById('wb-bg-layer')) {
-      console.log('[wb-bg] 定期检查：背景层不存在，重新插入');
-      insertLayer();
-    }
-  }, 3000);
-
-  console.log('[wb-bg] 背景注入脚本已启动');
+  console.log('[wb-bg] 背景注入脚本已启动（持久模式）');
+})();
 })();
 `;
 }

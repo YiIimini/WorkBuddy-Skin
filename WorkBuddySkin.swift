@@ -2,20 +2,18 @@ import Cocoa
 import UniformTypeIdentifiers
 import AVFoundation
 
-// ─── 颜色（提高对比度）──────────────────────────────────────
+// ─── 颜色（高对比度，确保可读）──────────────────────────────
 extension NSColor {
-    static let bgDark = NSColor(red: 0.08, green: 0.06, blue: 0.12, alpha: 1.0)
-    static let bgCard = NSColor(red: 0.14, green: 0.10, blue: 0.20, alpha: 1.0)
-    static let bgInput = NSColor(red: 0.18, green: 0.14, blue: 0.26, alpha: 1.0)
-    static let accentPink = NSColor(red: 1.0, green: 0.42, blue: 0.65, alpha: 1.0)
-    static let accentPurple = NSColor(red: 0.75, green: 0.52, blue: 0.99, alpha: 1.0)
-    // 文字颜色：更亮，确保可读性
-    static let textTitle = NSColor.white
-    static let textBody = NSColor(red: 0.95, green: 0.93, blue: 0.97, alpha: 1.0)
-    static let textLabel = NSColor(red: 0.85, green: 0.82, blue: 0.90, alpha: 1.0)
-    static let textHint = NSColor(red: 0.65, green: 0.62, blue: 0.72, alpha: 1.0)
-    static let statusOk = NSColor(red: 0.30, green: 0.90, blue: 0.55, alpha: 1.0)
-    static let statusErr = NSColor(red: 1.0, green: 0.50, blue: 0.50, alpha: 1.0)
+    static let bgDark = NSColor(srgbRed: 0.05, green: 0.03, blue: 0.08, alpha: 1.0)
+    static let bgCard = NSColor(srgbRed: 0.13, green: 0.09, blue: 0.19, alpha: 1.0)
+    static let accentPink = NSColor(srgbRed: 1.0, green: 0.42, blue: 0.65, alpha: 1.0)
+    // 使用系统自适应颜色，确保深色模式下可读
+    static let textTitle = NSColor.labelColor  // 纯白（深色模式）
+    static let textBody = NSColor.controlTextColor  // 接近白色
+    static let textLabel = NSColor.secondaryLabelColor  // 浅灰
+    static let textHint = NSColor.tertiaryLabelColor  // 中灰
+    static let statusOk = NSColor(srgbRed: 0.30, green: 0.90, blue: 0.55, alpha: 1.0)
+    static let statusErr = NSColor(srgbRed: 1.0, green: 0.50, blue: 0.50, alpha: 1.0)
 }
 
 // ─── 状态卡片 ──────────────────────────────────────────────
@@ -114,6 +112,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.center()
         window.minSize = NSSize(width: W, height: H)
         window.maxSize = NSSize(width: W, height: H)
+        // 强制深色外观
+        window.appearance = NSAppearance(named: .darkAqua)
 
         let bg = NSView(frame: NSRect(x: 0, y: 0, width: W, height: H))
         bg.wantsLayer = true
