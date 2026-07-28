@@ -26,24 +26,13 @@ swiftc -o "${MACOS_DIR}/${APP_NAME}" \
   -framework AVFoundation \
   "$SCRIPT_DIR/WorkBuddySkin.swift"
 
-# 复制图标（如果存在）
-ICON_SRC="$HOME/Pictures/暴富喵 apng.png"
+# 生成图标（Python Pillow 程序化生成）
 ICONSET_DIR="/tmp/AppIcon.iconset"
 ICNS_FILE="/tmp/WorkBuddy-Skin.icns"
+PYTHON="/Users/x/.workbuddy/binaries/python/envs/default/bin/python3"
 
-if [ -f "$ICON_SRC" ]; then
-  rm -rf "$ICONSET_DIR"
-  mkdir -p "$ICONSET_DIR"
-  sips -z 16 16   "$ICON_SRC" --out "$ICONSET_DIR/icon_16x16.png" > /dev/null 2>&1
-  sips -z 32 32   "$ICON_SRC" --out "$ICONSET_DIR/icon_16x16@2x.png" > /dev/null 2>&1
-  sips -z 32 32   "$ICON_SRC" --out "$ICONSET_DIR/icon_32x32.png" > /dev/null 2>&1
-  sips -z 64 64   "$ICON_SRC" --out "$ICONSET_DIR/icon_32x32@2x.png" > /dev/null 2>&1
-  sips -z 128 128 "$ICON_SRC" --out "$ICONSET_DIR/icon_128x128.png" > /dev/null 2>&1
-  sips -z 256 256 "$ICON_SRC" --out "$ICONSET_DIR/icon_128x128@2x.png" > /dev/null 2>&1
-  sips -z 256 256 "$ICON_SRC" --out "$ICONSET_DIR/icon_256x256.png" > /dev/null 2>&1
-  sips -z 512 512 "$ICON_SRC" --out "$ICONSET_DIR/icon_256x256@2x.png" > /dev/null 2>&1
-  sips -z 512 512 "$ICON_SRC" --out "$ICONSET_DIR/icon_512x512.png" > /dev/null 2>&1
-  sips -z 1024 1024 "$ICON_SRC" --out "$ICONSET_DIR/icon_512x512@2x.png" > /dev/null 2>&1
+if [ -f "$SCRIPT_DIR/gen-icon.py" ]; then
+  "$PYTHON" "$SCRIPT_DIR/gen-icon.py" "$ICONSET_DIR" > /dev/null 2>&1
   iconutil -c icns "$ICONSET_DIR" -o "$ICNS_FILE" > /dev/null 2>&1
   cp "$ICNS_FILE" "${RESOURCES_DIR}/AppIcon.icns"
   ICON_KEY="true"

@@ -113,7 +113,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 icon.size = NSSize(width: 18, height: 18)
                 button.image = icon
             } else {
-                button.title = "🎨"
+                button.title = "✦"
+                button.font = NSFont.systemFont(ofSize: 16)
             }
         }
         let menu = NSMenu()
