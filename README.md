@@ -1,9 +1,9 @@
-# WorkBuddy-Skin v2.3
+# WorkBuddy-Skin v1.0.0
 
 > 原生 macOS 桌面应用，为 WorkBuddy 注入自定义背景。零侵入，不修改 WorkBuddy 本体。
 
 ## 安装
-下载 [WorkBuddy-Skin-v2.3.dmg](https://github.com/YiIimini/WorkBuddy-Skin/releases/download/v2.3/WorkBuddy-Skin-v2.3.dmg)，拖入 Applications。首次运行需授权。
+下载 [WorkBuddy-Skin-v1.0.0.dmg](https://github.com/YiIimini/WorkBuddy-Skin/releases/download/v1.0.0/WorkBuddy-Skin-v1.0.0.dmg)，拖入 Applications。首次运行需授权。
 
 ## 功能
 - **背景注入**：CDP 注入图片/视频背景，RAF 持续渲染，页面导航自动恢复
