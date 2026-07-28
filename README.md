@@ -10,6 +10,8 @@
 - **实时调节**：不透明度、暗色遮罩、模糊、填充方式、位置
 - **设置面板**：Web 界面，实时预览，即时生效
 - **毛玻璃效果**：WorkBuddy 面板自动变半透明，透出背景
+- **托盘守护**：常驻后台，自动监控和注入，开机自启（可选）
+- **独立控制**：控制器应用，一键启动/设置，无需命令行
 
 ## 架构
 
@@ -64,7 +66,32 @@ bash launcher.sh
 
 ### 使用
 
-#### 方式 1：Web 设置面板（推荐）
+#### 方式 1：独立控制器（推荐）
+
+**首次使用：**
+```bash
+# 启动托盘守护进程
+bash start-tray.sh
+```
+
+**日常使用：**
+1. 双击 `~/Applications/WorkBuddy+ Controller.app`
+2. 选择操作：
+   - **启动 WorkBuddy+** — 一键启动 WorkBuddy（带 CDP）+ 守护进程
+   - **设置背景...** — 选择图片/视频文件
+   - **打开 Web 设置面板** — 访问 http://localhost:17890
+   - **查看状态** — 检查运行状态
+
+**开机自启（可选）：**
+```bash
+# 加载 LaunchAgent
+launchctl load ~/Library/LaunchAgents/com.workbuddy.plus.tray.plist
+
+# 卸载
+launchctl unload ~/Library/LaunchAgents/com.workbuddy.plus.tray.plist
+```
+
+#### 方式 2：Web 设置面板
 
 1. **启动**：双击 `~/Applications/WorkBuddy+.app`，或终端运行 `bash launcher.sh`
 2. **设置**：浏览器自动打开 `http://localhost:17890`
@@ -72,13 +99,11 @@ bash launcher.sh
 4. **调节效果**：拖动滑块实时预览
 5. **保存**：点击「保存并应用」，背景即时生效
 
-#### 方式 2：macOS 右键菜单（快捷）
+#### 方式 3：拖拽应用
 
-1. 在 Finder 中找到图片或视频文件
-2. **右键** → **服务** → **设为 WorkBuddy 背景**
-3. 自动检测文件类型并应用
+拖拽图片/视频文件到 `~/Applications/设为 WorkBuddy 背景.app` 图标上。
 
-#### 方式 3：命令行脚本
+#### 方式 4：命令行脚本
 
 ```bash
 # 设置背景
@@ -135,20 +160,29 @@ bash launcher.sh --help   # 显示帮助
 
 ```
 bg-injector/
-├── daemon.js            # CDP 注入守护进程（核心）
-├── settings.html        # 设置面板（Web UI）
-├── launcher.sh          # 启动脚本
-├── set-background.sh    # 快速设置背景脚本（右键菜单调用）
-├── config.json          # 背景配置
-├── daemon.log           # 运行日志（自动生成）
-├── daemon.pid           # 进程 PID（自动生成）
-└── README.md            # 本文件
+├── daemon.js                # CDP 注入守护进程（核心）
+├── tray-daemon.js           # 托盘守护进程（常驻后台，自动监控）
+├── settings.html            # 设置面板（Web UI）
+├── launcher.sh              # 启动脚本（启动 WorkBuddy + 守护进程）
+├── start-tray.sh            # 启动托盘守护进程
+├── set-background.sh        # 快速设置背景脚本
+├── config.json              # 背景配置
+├── daemon.log               # 守护进程日志（自动生成）
+├── tray.log                 # 托盘守护进程日志（自动生成）
+├── daemon.pid               # 守护进程 PID（自动生成）
+├── tray.pid                 # 托盘守护进程 PID（自动生成）
+└── README.md                # 本文件
 ```
 
 **系统级集成：**
 ```
-~/Library/Services/
-└── 设为 WorkBuddy 背景.workflow/  # macOS 右键菜单 Quick Action
+~/Applications/
+├── WorkBuddy+.app                   # 启动器（退出旧 WorkBuddy → 带 CDP 重启）
+├── WorkBuddy+ Controller.app        # 控制器（菜单操作面板）
+└── 设为 WorkBuddy 背景.app           # 拖拽应用（拖文件到图标设置背景）
+
+~/Library/LaunchAgents/
+└── com.workbuddy.plus.tray.plist    # 开机自启配置（可选）
 ```
 
 ## 工作原理
