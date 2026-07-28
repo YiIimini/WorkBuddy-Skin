@@ -1,39 +1,54 @@
-# WorkBuddy+ v2.0 Release Notes
+# WorkBuddy+ v2.0.1 Release Notes
 
 ## 发布日期
 2026-07-28
 
 ## 下载
 
-**DMG 安装包：** [WorkBuddy+-v2.0.dmg](../../releases/download/v2.0/WorkBuddy+-v2.0.dmg) (806 KB)
+**DMG 安装包：** [WorkBuddy+-v2.0.1.dmg](../../releases/download/v2.0.1/WorkBuddy+-v2.0.1.dmg) (806 KB)
 
 ## 安装
 
-1. 下载并打开 `WorkBuddy+-v2.0.dmg`
+1. 下载并打开 `WorkBuddy+-v2.0.1.dmg`
 2. 将 `WorkBuddy+.app` 拖拽到 `Applications` 文件夹
 3. 首次运行时，如果提示"未受信任的开发者"，前往 **系统设置 → 隐私与安全性 → 仍要打开**
 
-## 新功能
+## 更新内容
 
-### 核心功能
-- ✅ **零侵入背景注入**：不修改 WorkBuddy.app，通过 CDP 注入自定义背景
-- ✅ **视频背景**：支持 MP4/WebM/MOV 循环播放
-- ✅ **图片背景**：支持 JPG/PNG/GIF/WebP/AVIF
-- ✅ **实时调节**：不透明度、暗色遮罩、模糊、填充方式、位置
-- ✅ **毛玻璃效果**：WorkBuddy 面板自动变半透明
+### v2.0.1 (2026-07-28)
 
-### 用户体验
-- ✅ **三步操作流程**：打开 Web 管理 → 启动源程序并注入 → 退出
-- ✅ **Web 设置面板**：实时预览，即时生效
-- ✅ **DMG 安装包**：标准 macOS 安装方式
-- ✅ **拖拽应用**：拖文件到图标快速设置背景
-- ✅ **持续监控**：自动检测并恢复背景层
+**修复：**
+- ✅ 修复 settings.html not found 问题（守护进程路径更新）
+- ✅ 修复应用启动问题（AppleScript 文件名优化）
+- ✅ 全面排查并更新所有文件路径
+- ✅ 重新编译所有应用，确保路径正确
 
-### 技术改进
-- ✅ **file:// 协议**：绕过 WorkBuddy 的 URL 安全检查
-- ✅ **CDP 推送配置**：避免 fetch/XHR 被拦截
-- ✅ **MutationObserver**：监控 DOM 变化，自动恢复背景层
-- ✅ **托盘守护进程**：常驻后台，自动监控 WorkBuddy
+**改进：**
+- ✅ 完整的应用程序排查和验证
+- ✅ 所有脚本语法检查通过
+- ✅ 清理旧日志和 PID 文件
+
+### v2.0 (2026-07-28)
+
+**核心功能：**
+- ✅ 零侵入背景注入：不修改 WorkBuddy.app，通过 CDP 注入自定义背景
+- ✅ 视频背景：支持 MP4/WebM/MOV 循环播放
+- ✅ 图片背景：支持 JPG/PNG/GIF/WebP/AVIF
+- ✅ 实时调节：不透明度、暗色遮罩、模糊、填充方式、位置
+- ✅ 毛玻璃效果：WorkBuddy 面板自动变半透明
+
+**用户体验：**
+- ✅ 三步操作流程：打开 Web 管理 → 启动源程序并注入 → 退出
+- ✅ Web 设置面板：实时预览，即时生效
+- ✅ DMG 安装包：标准 macOS 安装方式
+- ✅ 拖拽应用：拖文件到图标快速设置背景
+- ✅ 持续监控：自动检测并恢复背景层
+
+**技术改进：**
+- ✅ file:// 协议：绕过 WorkBuddy 的 URL 安全检查
+- ✅ CDP 推送配置：避免 fetch/XHR 被拦截
+- ✅ MutationObserver：监控 DOM 变化，自动恢复背景层
+- ✅ 托盘守护进程：常驻后台，自动监控 WorkBuddy
 
 ## 系统要求
 
@@ -62,7 +77,7 @@
 
 ## 源代码
 
-GitHub: https://github.com/YiIimini/workbuddy-WorkBuddy+
+GitHub: https://github.com/YiIimini/WorkBuddy-Plus
 
 ## 许可证
 

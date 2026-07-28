@@ -52,7 +52,7 @@
 ### 方式 1：DMG 安装包（推荐）
 
 1. **下载 DMG**：
-   - 从 [Releases](https://github.com/YiIimini/workbuddy-WorkBuddy+/releases) 下载 `WorkBuddy+-v2.0.dmg`
+   - 从 [Releases](https://github.com/YiIimini/workbuddy-WorkBuddy+/releases) 下载 `WorkBuddy+-v2.0.1.dmg`
 
 2. **安装**：
    - 双击打开 DMG 文件
@@ -199,7 +199,7 @@ WorkBuddy+/
 
 **DMG 安装包：**
 ```
-WorkBuddy+-v2.0.dmg                  # macOS 安装包（拖拽安装）
+WorkBuddy+-v2.0.1.dmg                  # macOS 安装包（拖拽安装）
 ├── WorkBuddy+.app                   # 主应用
 ├── Applications -> /Applications    # 快捷方式
 └── README.txt                       # 安装说明
