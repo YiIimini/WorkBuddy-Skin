@@ -43,7 +43,7 @@ WorkBuddy (Electron)                 ← 目标应用
 ## 社交媒体
 
 <p align="center">
-  <a href="https://www.douyin.com/user/yiilimini">
+  <a href="https://github.com/YiIimini/Mineradio-MacOS/raw/main/public/xc/dy.png">
     <img src="https://github.com/YiIimini/Mineradio-MacOS/raw/main/public/xc/dy.png" width="160" alt="抖音" />
   </a>
 </p>
