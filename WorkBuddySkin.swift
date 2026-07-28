@@ -53,6 +53,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var startButton: NSButton!, injectButton: NSButton!
     var selectFileButton: NSButton!, clearButton: NSButton!
     var autoTextBtn: NSButton!, textColorWell: NSColorWell!
+    var autoTextOn = true
     var opacitySlider: NSSlider!, overlaySlider: NSSlider!
     var opacityValueLabel: NSTextField!, overlayValueLabel: NSTextField!
     var blurPopup: NSPopUpButton!, scalePopup: NSPopUpButton!, positionPopup: NSPopUpButton!, themePopup: NSPopUpButton!
@@ -338,11 +339,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         updateConfig()
     }
     @objc func autoTextToggled() {
-        let isOn = autoTextBtn.state == .off
-        autoTextBtn.state = isOn ? .on : .off
-        autoTextBtn.image = NSImage(systemSymbolName: isOn ? "checkmark.square.fill" : "square", accessibilityDescription: nil)
-        textColorWell.isEnabled = !isOn
-        if isOn, let src = currentConfig["source"] as? String, !src.isEmpty { analyzeTextColor(src) }
+        autoTextOn.toggle()
+        autoTextBtn.image = NSImage(systemSymbolName: autoTextOn ? "checkmark.square.fill" : "square", accessibilityDescription: nil)
+        textColorWell.isEnabled = !autoTextOn
+        if autoTextOn, let src = currentConfig["source"] as? String, !src.isEmpty { analyzeTextColor(src) }
         updateConfig()
     }
     func analyzeTextColor(_ path: String) {
@@ -355,7 +355,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             var r: Double = 0, g: Double = 0, b: Double = 0, c: Double = 0
             for i in stride(from: 0, to: w*h*4, by: 4) { r += Double(pixels[i]); g += Double(pixels[i+1]); b += Double(pixels[i+2]); c += 1 }
             let lum = (0.299*r + 0.587*g + 0.114*b) / c / 255
-            DispatchQueue.main.async { if self.autoTextBtn.state == .on { self.textColorWell.color = lum > 0.5 ? .black : .white; self.updateConfig() } }
+            DispatchQueue.main.async { if self.autoTextOn { self.textColorWell.color = lum > 0.5 ? .black : .white; self.updateConfig() } }
         }
     }
     @objc func startWorkBuddy() {
@@ -397,8 +397,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         currentConfig["blur"] = ["0px","5px","10px","20px"][blurPopup.indexOfSelectedItem]
         currentConfig["scale"] = ["cover","contain","fill"][scalePopup.indexOfSelectedItem]
         currentConfig["position"] = ["center","top","bottom","left","right"][positionPopup.indexOfSelectedItem]
-        currentConfig["autoText"] = autoTextBtn.state == .on
-        if autoTextBtn.state == .on { currentConfig["textColor"] = "auto" }
+        currentConfig["autoText"] = autoTextOn
+        if autoTextOn { currentConfig["textColor"] = "auto" }
         else { let c = textColorWell.color.usingColorSpace(.sRGB)!; currentConfig["textColor"] = String(format: "#%02x%02x%02x", Int(c.redComponent*255), Int(c.greenComponent*255), Int(c.blueComponent*255)) }
         currentConfig["theme"] = ["purple","blue","green","orange","rose","slate","midnight"][themePopup.indexOfSelectedItem]
         saveConfig()
@@ -413,7 +413,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if let b = j["blur"] as? String, let i = ["0px","5px","10px","20px"].firstIndex(of: b) { self.blurPopup.selectItem(at: i) }
                 if let s = j["scale"] as? String, let i = ["cover","contain","fill"].firstIndex(of: s) { self.scalePopup.selectItem(at: i) }
                 if let p = j["position"] as? String, let i = ["center","top","bottom","left","right"].firstIndex(of: p) { self.positionPopup.selectItem(at: i) }
-                let auto = j["autoText"] as? Bool ?? true; self.autoTextBtn.state = auto ? .on : .off
+                let auto = j["autoText"] as? Bool ?? true; self.autoTextOn = auto
                 self.autoTextBtn.image = NSImage(systemSymbolName: auto ? "checkmark.square.fill" : "square", accessibilityDescription: nil)
                 self.textColorWell.isEnabled = !auto
                 if !auto, let tc = j["textColor"] as? String, tc != "auto", tc.hasPrefix("#") { self.textColorWell.color = NSColorFromHex(tc) ?? .white }
