@@ -79,6 +79,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // 预览
     var previewView: NSView!
     var previewImageView: NSImageView!
+    var previewHeight: CGFloat = 50
+    var previewBaseY: CGFloat = 0
+    var belowPreviewY: CGFloat = 0
+    var belowPreviewViews: [NSView] = []
 
     let daemonURL = "http://localhost:17890"
     var currentConfig: [String: Any] = [:]
@@ -136,28 +140,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         bg.addSubview(subLabel)
         y -= 28
 
-        // ── 预览区 ──
-        let previewH: CGFloat = 180
-        previewView = NSView(frame: NSRect(x: p, y: y - previewH, width: W - p*2, height: previewH))
+        // ── 预览区（动态高度）──
+        previewHeight = 50 // 初始小高度
+        previewBaseY = y
+        previewView = NSView(frame: NSRect(x: p, y: y - previewHeight, width: W - p*2, height: previewHeight))
         previewView.wantsLayer = true
         previewView.layer?.backgroundColor = NSColor.bgCard.cgColor
-        previewView.layer?.cornerRadius = 12
+        previewView.layer?.cornerRadius = 10
         previewView.layer?.borderWidth = 1
-        previewView.layer?.borderColor = NSColor.accentPink.withAlphaComponent(0.15).cgColor
+        previewView.layer?.borderColor = NSColor.accentPink.withAlphaComponent(0.12).cgColor
         bg.addSubview(previewView)
 
         previewImageView = NSImageView(frame: NSRect(x: 0, y: 0, width: previewView.bounds.width, height: previewView.bounds.height))
         previewImageView.imageScaling = .scaleProportionallyUpOrDown
         previewImageView.imageAlignment = .alignCenter
+        previewImageView.isHidden = true
         previewView.addSubview(previewImageView)
 
-        let noPreviewLabel = makeLabel("选择文件后显示预览", size: 14, bold: false, color: .textHint)
+        let noPreviewLabel = makeLabel("选择文件后显示预览", size: 13, bold: false, color: .textHint)
         noPreviewLabel.alignment = .center
         noPreviewLabel.tag = 999
-        noPreviewLabel.frame = NSRect(x: 0, y: previewH/2 - 10, width: previewView.bounds.width, height: 20)
+        noPreviewLabel.frame = NSRect(x: 0, y: previewHeight/2 - 10, width: previewView.bounds.width, height: 20)
         previewView.addSubview(noPreviewLabel)
 
-        y -= previewH + 20
+        y -= previewHeight + 16
+
+        // 存储预览下方的基线，用于动态调整
+        belowPreviewY = y
 
         // ── 状态卡片 ──
         let cardW: CGFloat = (W - p*2 - 30) / 4
@@ -235,6 +244,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         positionPopup.target = self
         positionPopup.action = #selector(updateConfig)
 
+        // 收集预览下方的所有视图（用于动态调整高度时移动）
+        let previewBottom = previewBaseY - previewHeight
+        for sv in bg.subviews {
+            if sv !== previewView && sv.frame.origin.y < previewBottom + 5 {
+                belowPreviewViews.append(sv)
+            }
+        }
+
         window.makeKeyAndOrderFront(nil)
     }
 
@@ -297,29 +314,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // ─── 预览 ─────────────────────────────────────────────
     func showPreview(_ path: String) {
-        // 移除旧预览
         previewImageView.image = nil
-        if let oldLabel = previewView.viewWithTag(999) {
-            oldLabel.removeFromSuperview()
-        }
+        previewImageView.isHidden = true
+        if let oldLabel = previewView.viewWithTag(999) { oldLabel.isHidden = false }
 
         let ext = (path as NSString).pathExtension.lowercased()
         let isVideo = ["mp4", "webm", "mov", "avi", "mkv", "m4v"].contains(ext)
 
         if isVideo {
-            // 生成视频缩略图
             DispatchQueue.global().async {
                 let url = URL(fileURLWithPath: path)
-                let asset = AVAsset(url: url)
+                let asset = AVURLAsset(url: url)
                 let generator = AVAssetImageGenerator(asset: asset)
                 generator.appliesPreferredTrackTransform = true
-                generator.maximumSize = CGSize(width: 400, height: 200)
+                generator.maximumSize = CGSize(width: 672, height: 400)
 
                 do {
                     let cgImage = try generator.copyCGImage(at: CMTime(seconds: 0.5, preferredTimescale: 600), actualTime: nil)
                     let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
                     DispatchQueue.main.async {
                         self.previewImageView.image = image
+                        self.previewImageView.isHidden = false
+                        if let oldLabel = self.previewView.viewWithTag(999) { oldLabel.isHidden = true }
+                        self.resizePreview(imageSize: image.size)
                     }
                 } catch {
                     DispatchQueue.main.async {
@@ -328,26 +345,64 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         } else {
-            // 图片直接显示
             if let image = NSImage(contentsOfFile: path) {
                 previewImageView.image = image
+                previewImageView.isHidden = false
+                if let oldLabel = previewView.viewWithTag(999) { oldLabel.isHidden = true }
+                resizePreview(imageSize: image.size)
             } else {
                 showNoPreview("🖼️ 无法加载图片")
             }
         }
     }
 
+    func resizePreview(imageSize: NSSize) {
+        let maxWidth: CGFloat = 672
+        let maxHeight: CGFloat = 250
+
+        var newHeight: CGFloat = 50
+        if imageSize.width > 0 {
+            let ratio = imageSize.height / imageSize.width
+            newHeight = min(maxWidth * ratio, maxHeight)
+            if newHeight < 50 { newHeight = 50 }
+        }
+
+        let delta = newHeight - previewHeight
+        previewHeight = newHeight
+
+        // 更新预览框
+        previewView.frame = NSRect(x: previewView.frame.origin.x, y: previewBaseY - previewHeight, width: maxWidth, height: previewHeight)
+        previewImageView.frame = NSRect(x: 0, y: 0, width: maxWidth, height: previewHeight)
+        if let label = previewView.viewWithTag(999) {
+            label.frame = NSRect(x: 0, y: previewHeight/2 - 10, width: maxWidth, height: 20)
+        }
+
+        // 调整下方所有元素
+        for view in belowPreviewViews {
+            view.frame.origin.y -= delta
+        }
+    }
+
     func showNoPreview(_ text: String) {
-        let label = makeLabel(text, size: 14, bold: false, color: .textHint)
-        label.alignment = .center
-        label.tag = 999
-        label.frame = NSRect(x: 0, y: previewView.bounds.height/2 - 10, width: previewView.bounds.width, height: 20)
-        previewView.addSubview(label)
+        previewImageView.image = nil
+        previewImageView.isHidden = true
+        if let oldLabel = previewView.viewWithTag(999) {
+            oldLabel.isHidden = false
+            (oldLabel as? NSTextField)?.stringValue = text
+        }
     }
 
     func clearPreview() {
         previewImageView.image = nil
-        showNoPreview("选择文件后显示预览")
+        previewImageView.isHidden = true
+        if let oldLabel = previewView.viewWithTag(999) {
+            oldLabel.isHidden = false
+            (oldLabel as? NSTextField)?.stringValue = "选择文件后显示预览"
+        }
+        // 恢复默认高度
+        if previewHeight != 50 {
+            resizePreview(imageSize: NSSize(width: 100, height: 10))
+        }
     }
 
     // ─── 启动 WorkBuddy ────────────────────────────────────

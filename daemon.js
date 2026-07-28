@@ -133,160 +133,152 @@ let config = loadConfig();
 function buildInjectScript() {
   return `
 (function() {
-  // 防止 ensureLayers 重复运行
   if (window.__wbBgInterval) { clearInterval(window.__wbBgInterval); }
-  
+  if (window.__wbBgRAF) { cancelAnimationFrame(window.__wbBgRAF); }
+
   var currentConfig = null;
   var currentFileUri = null;
 
-  // CSS 样式（一次性注入，持久生效）
-  var style = document.createElement('style');
-  style.id = 'wb-bg-transparent-css';
-  style.textContent = [
+  // CSS 注入（持续保证存在）
+  var cssText = [
     'html, body { background: transparent !important; }',
-    '#root, #app, [id*="root"], [id*="app"] { background: transparent !important; position: relative; z-index: 2; }',
-    'body > div:not(#wb-bg-layer):not(#wb-bg-overlay) { background: transparent !important; }',
-    '[data-view-id=sidebar] { background: rgba(16,8,26,0.30) !important; backdrop-filter: blur(20px) saturate(1.12) !important; -webkit-backdrop-filter: blur(20px) saturate(1.12) !important; border: none !important; }',
+    '#root, #app, [id*="root"], [id*="app"] { background: transparent !important; }',
+    'body > div { background: transparent !important; }',
+    '[data-view-id=sidebar] { background: rgba(16,8,26,0.30) !important; backdrop-filter: blur(20px) saturate(1.12) !important; -webkit-backdrop-filter: blur(20px) saturate(1.12) !important; }',
     '[data-view-id=detail-panel] { background: rgba(16,8,26,0.50) !important; backdrop-filter: blur(18px) saturate(1.08) !important; -webkit-backdrop-filter: blur(18px) saturate(1.08) !important; }',
     '[data-view-id=main-content] { background: transparent !important; }',
-    '.atm-modal-chat-input [class*="_mainArea_"], .atm-modal-chat-input [class*="_content_"], .atm-modal-chat-input textarea, .atm-modal-chat-input [contenteditable] { --atm-surface: rgba(16,8,26,0.30) !important; --atm-chat-content-bg: rgba(16,8,26,0.30) !important; background: rgba(16,8,26,0.30) !important; backdrop-filter: blur(16px) saturate(1.2) !important; -webkit-backdrop-filter: blur(16px) saturate(1.2) !important; }',
-    '[role=listbox], [role=menu], .monaco-menu { background: rgba(16,8,26,0.45) !important; backdrop-filter: blur(12px) saturate(1.15) !important; -webkit-backdrop-filter: blur(12px) saturate(1.15) !important; }',
-    '#wb-bg-layer { position: fixed !important; inset: 0 !important; z-index: -1 !important; pointer-events: none !important; overflow: hidden !important; }',
-    '#wb-bg-overlay { position: fixed !important; inset: 0 !important; z-index: 0 !important; pointer-events: none !important; transition: background 0.4s ease; }',
+    '.atm-modal-chat-input [class*="_mainArea_"], .atm-modal-chat-input [class*="_content_"], .atm-modal-chat-input textarea, .atm-modal-chat-input [contenteditable] { background: rgba(16,8,26,0.30) !important; backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important; }',
+    '[role=listbox], [role=menu], .monaco-menu { background: rgba(16,8,26,0.45) !important; backdrop-filter: blur(12px) !important; -webkit-backdrop-filter: blur(12px) !important; }'
   ].join('\\n');
 
-  function ensureStyle() {
-    if (!document.getElementById('wb-bg-transparent-css')) {
-      (document.head || document.documentElement).appendChild(style);
+  function ensureCSS() {
+    var el = document.getElementById('wb-bg-css');
+    if (!el) {
+      el = document.createElement('style');
+      el.id = 'wb-bg-css';
+      el.textContent = cssText;
+      (document.head || document.documentElement).appendChild(el);
     }
   }
 
-  // 创建背景层（每次都重新创建，确保存在）
-  function createBgLayer() {
-    var layer = document.createElement('div');
-    layer.id = 'wb-bg-layer';
-    layer.style.cssText = 'position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;background:#000;';
+  // 创建/获取背景层
+  function ensureBgLayer() {
+    var layer = document.getElementById('wb-bg-layer');
+    if (!layer) {
+      layer = document.createElement('div');
+      layer.id = 'wb-bg-layer';
+      layer.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:-2147483648;pointer-events:none;overflow:hidden;background:#000;';
+      document.body.appendChild(layer);
+    }
+    // 强制保持在 body 中
+    if (!layer.parentNode) {
+      document.body.appendChild(layer);
+    }
     return layer;
   }
 
-  function createOverlay() {
-    var ov = document.createElement('div');
-    ov.id = 'wb-bg-overlay';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:0;pointer-events:none;background:rgba(0,0,0,0);transition:background 0.4s ease;';
+  function ensureOverlay() {
+    var ov = document.getElementById('wb-bg-overlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'wb-bg-overlay';
+      ov.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:0;pointer-events:none;';
+      document.body.appendChild(ov);
+    }
     return ov;
   }
 
-  // 强制插入背景层（每 500ms 调用一次）
-  function ensureLayers() {
-    ensureStyle();
+  // 创建/重建媒体
+  function ensureMedia(layer) {
+    if (!currentConfig || !currentConfig.enabled || !currentConfig.source) return;
 
-    if (!document.body) return;
+    var media = layer.querySelector('video, img');
+    var expectedTag = currentConfig.type === 'video' ? 'video' : 'img';
 
-    var layer = document.getElementById('wb-bg-layer');
-    var overlay = document.getElementById('wb-bg-overlay');
+    // 如果媒体不存在或类型不对，重建
+    if (!media || media.tagName.toLowerCase() !== expectedTag) {
+      if (media) media.remove();
 
-    if (!layer) {
-      layer = createBgLayer();
-      document.body.insertBefore(layer, document.body.firstChild);
-    }
-
-    if (!overlay) {
-      overlay = createOverlay();
-      document.body.insertBefore(overlay, layer.nextSibling);
-    }
-
-    // 确保背景层在最前面（body 的第一个子元素）
-    if (document.body.firstChild !== layer) {
-      document.body.insertBefore(layer, document.body.firstChild);
-    }
-
-    // 检查是否有媒体元素，如果没有且有配置，则创建
-    if (currentConfig && currentConfig.enabled && currentConfig.source) {
-      var media = layer.querySelector('video, img');
-      if (!media) {
-        rebuildMedia(layer);
+      if (currentConfig.type === 'video') {
+        media = document.createElement('video');
+        media.autoplay = true;
+        media.loop = true;
+        media.muted = true;
+        media.playsInline = true;
+        media.setAttribute('muted', '');
+      } else {
+        media = document.createElement('img');
       }
+
+      media.style.cssText = 'width:100%;height:100%;object-fit:' + (currentConfig.scale || 'cover') + ';object-position:' + (currentConfig.position || 'center') + ';display:block;';
+      if (currentConfig.blur && currentConfig.blur !== '0px') {
+        media.style.filter = 'blur(' + currentConfig.blur + ')';
+        media.style.transform = 'scale(1.05)';
+      }
+
+      var src = currentFileUri || ('file://' + currentConfig.source);
+      media.src = src;
+      if (currentConfig.type === 'video') {
+        media.play().catch(function(){});
+      }
+      layer.appendChild(media);
+    }
+
+    // 更新层样式
+    layer.style.display = 'block';
+    layer.style.opacity = String(currentConfig.opacity != null ? currentConfig.opacity : 1);
+
+    var ov = document.getElementById('wb-bg-overlay');
+    if (ov) {
+      ov.style.background = 'rgba(0,0,0,' + (currentConfig.overlay != null ? currentConfig.overlay : 0.25) + ')';
     }
   }
 
-  // 重建媒体元素
-  function rebuildMedia(layer) {
-    if (!currentConfig || !currentConfig.enabled || !currentConfig.source) return;
+  // 主循环：用 requestAnimationFrame 持续保证
+  var frameCount = 0;
+  function tick() {
+    ensureCSS();
 
-    var cfg = currentConfig;
-    var src = currentFileUri || ('file://' + cfg.source);
-
-    // 清除旧的
-    var old = layer.querySelector('video, img');
-    if (old) old.remove();
-
-    var media;
-    if (cfg.type === 'video') {
-      media = document.createElement('video');
-      media.autoplay = true;
-      media.loop = true;
-      media.muted = true;
-      media.playsInline = true;
-      media.setAttribute('muted', '');
-    } else {
-      media = document.createElement('img');
+    if (document.body) {
+      var layer = ensureBgLayer();
+      ensureOverlay();
+      ensureMedia(layer);
     }
 
-    media.style.cssText = 'width:100%;height:100%;object-fit:' + (cfg.scale || 'cover') + ';object-position:' + (cfg.position || 'center') + ';display:block;';
-
-    if (cfg.blur && cfg.blur !== '0px') {
-      media.style.filter = 'blur(' + cfg.blur + ')';
-      media.style.transform = 'scale(1.05)';
+    frameCount++;
+    // 每 60 帧（约 1 秒）打印一次日志
+    if (frameCount % 60 === 0) {
+      // 静默
     }
 
-    media.src = src;
-    if (cfg.type === 'video') {
-      media.play().catch(function(){});
-    }
-
-    layer.appendChild(media);
-
-    // 设置层样式
-    layer.style.display = 'block';
-    layer.style.opacity = String(cfg.opacity != null ? cfg.opacity : 1);
-
-    var overlay = document.getElementById('wb-bg-overlay');
-    if (overlay) {
-      overlay.style.background = 'rgba(0,0,0,' + (cfg.overlay != null ? cfg.overlay : 0.25) + ')';
-    }
+    window.__wbBgRAF = requestAnimationFrame(tick);
   }
 
   // 应用配置
-  function applyConfig(cfg, fileUri) {
+  window.__wbBgApplyConfig = function(cfg, fileUri) {
     currentConfig = cfg;
     currentFileUri = fileUri;
 
-    if (!cfg || !cfg.enabled || cfg.type === 'none' || !cfg.source) {
+    if (!cfg || !cfg.enabled || !cfg.source) {
       var layer = document.getElementById('wb-bg-layer');
       if (layer) layer.style.display = 'none';
-      var overlay = document.getElementById('wb-bg-overlay');
-      if (overlay) overlay.style.background = 'rgba(0,0,0,0)';
+      var ov = document.getElementById('wb-bg-overlay');
+      if (ov) ov.style.background = 'rgba(0,0,0,0)';
       return;
     }
 
-    ensureLayers();
+    // 强制重建媒体（配置变了）
     var layer = document.getElementById('wb-bg-layer');
     if (layer) {
-      rebuildMedia(layer);
+      var old = layer.querySelector('video, img');
+      if (old) old.remove();
     }
-  }
-
-  // 暴露给 CDP 调用
-  window.__wbBgApplyConfig = function(cfg, fileUri) {
-    applyConfig(cfg, fileUri);
   };
 
-  // 启动：立即插入 + 每 500ms 检查
-  ensureLayers();
-  window.__wbBgInterval = setInterval(ensureLayers, 500);
+  // 启动
+  tick();
   window.__wbBgInjected = true;
-
-  console.log('[wb-bg] 背景注入脚本已启动（持久模式）');
+  console.log('[wb-bg] 背景注入已启动（RAF 持久模式）');
 })();
 `;
 }
