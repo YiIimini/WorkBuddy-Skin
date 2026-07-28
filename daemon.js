@@ -29,6 +29,7 @@ const { execFile } = require('child_process');
 const BASE_DIR = path.resolve(__dirname);
 const CONFIG_PATH = path.join(BASE_DIR, 'config.json');
 const SETTINGS_HTML = path.join(BASE_DIR, 'settings.html');
+const MANAGER_HTML = path.join(BASE_DIR, 'manager.html');
 const LOG_PATH = path.join(BASE_DIR, 'daemon.log');
 const PID_PATH = path.join(BASE_DIR, 'daemon.pid');
 
@@ -469,14 +470,21 @@ server = http.createServer(async (req, res) => {
   // 请求日志
   log('http', `${req.method} ${pathname} ${clientIP}`);
 
-  // GET / → 设置面板
+  // GET / → 管理器界面（一体化）
   if (pathname === '/' && req.method === 'GET') {
     try {
-      const html = fs.readFileSync(SETTINGS_HTML, 'utf8');
+      const html = fs.readFileSync(MANAGER_HTML, 'utf8');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(html);
-    } catch {
-      res.writeHead(404); res.end('settings.html not found');
+    } catch (e) {
+      log('http', `manager.html 读取失败: ${e.message}，回退到 settings.html`);
+      try {
+        const html = fs.readFileSync(SETTINGS_HTML, 'utf8');
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(html);
+      } catch {
+        res.writeHead(404); res.end('manager.html and settings.html not found');
+      }
     }
     return;
   }
@@ -587,6 +595,30 @@ server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, path: filePath }));
     });
+    return;
+  }
+
+  // POST /api/start-workbuddy → 启动 WorkBuddy（带 CDP）
+  if (pathname === '/api/start-workbuddy' && req.method === 'POST') {
+    const { spawn } = require('child_process');
+    const launcherPath = path.join(BASE_DIR, 'launcher.sh');
+
+    log('api', '收到启动 WorkBuddy 请求');
+
+    // 在后台执行 launcher.sh
+    const launcher = spawn('bash', [launcherPath], {
+      detached: true,
+      stdio: 'ignore'
+    });
+
+    launcher.unref();
+
+    launcher.on('error', (err) => {
+      log('api', `启动失败: ${err.message}`);
+    });
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, message: 'WorkBuddy-Skin 启动中...' }));
     return;
   }
 

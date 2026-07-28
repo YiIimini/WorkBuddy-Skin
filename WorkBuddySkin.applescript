@@ -1,30 +1,7 @@
--- WorkBuddy-Skin 控制器
--- 三步流程：1. 打开 Web 管理选择背景  2. 启动源程序并注入  3. 退出
+-- WorkBuddy-Skin 一体化管理器
+-- 直接打开管理界面，集成状态监控、设置、启动等所有功能
 
 on run
-	showMainMenu()
-end run
-
-on showMainMenu()
-	set menuItems to {"1. 打开 Web 管理（选择背景）", "2. 启动源程序并注入", "3. 退出"}
-	set choice to choose from list menuItems with prompt "WorkBuddy-Skin 背景注入
-
-请选择操作步骤：" with title "WorkBuddy-Skin 控制器" default items {"1. 打开 Web 管理（选择背景）"}
-
-	if choice is false then return
-
-	set selectedItem to item 1 of choice
-
-	if selectedItem starts with "1." then
-		openWebManager()
-	else if selectedItem starts with "2." then
-		startWorkBuddySkin()
-	else if selectedItem starts with "3." then
-		return
-	end if
-end showMainMenu
-
-on openWebManager()
 	-- 检查守护进程是否运行
 	set daemonRunning to checkPort(17890)
 
@@ -34,87 +11,11 @@ on openWebManager()
 		delay 3
 	end if
 
-	-- 打开 Web 管理面板
+	-- 打开管理器界面
 	open location "http://localhost:17890"
 
-	display notification "Web 管理面板已打开，请选择背景文件" with title "WorkBuddy-Skin" sound name "Glass"
-
-	-- 返回主菜单
-	delay 1
-	showMainMenu()
-end openWebManager
-
-on startWorkBuddySkin()
-	-- 检查 WorkBuddy 是否已运行（CDP 模式）
-	set wbRunning to checkWorkBuddyCDP()
-
-	set statusText to ""
-	if wbRunning then
-		set statusText to "WorkBuddy 已在运行（CDP 模式）"
-	else
-		set statusText to "WorkBuddy 未运行"
-	end if
-
-	display dialog statusText & return & return & "是否启动/重启 WorkBuddy-Skin 以应用背景？" buttons {"取消", "启动"} default button 2 with icon note
-	if button returned of result is "取消" then
-		showMainMenu()
-		return
-	end if
-
-	-- 退出当前 WorkBuddy
-	quitWorkBuddy()
-	delay 2
-
-	-- 启动 WorkBuddy + 守护进程
-	do shell script "bash ~/WorkBuddy-Skin/launcher.sh > /tmp/workbuddy-plus-launch.log 2>&1 &"
-
-	display notification "WorkBuddy-Skin 正在启动..." with title "WorkBuddy-Skin" sound name "Glass"
-
-	-- 等待 WorkBuddy 启动（最多 30 秒）
-	set maxWait to 30
-	set waited to 0
-	set cdpRunning to false
-
-	repeat while waited < maxWait and not cdpRunning
-		delay 1
-		set waited to waited + 1
-		set cdpRunning to checkPort(9222)
-	end repeat
-
-	-- 检查启动状态
-	set daemonRunning to checkPort(17890)
-
-	set resultText to "守护进程: "
-	if daemonRunning then
-		set resultText to resultText & "✓ 运行中"
-	else
-		set resultText to resultText & "✗ 未运行"
-	end if
-
-	set resultText to resultText & return & "CDP 端口: "
-	if cdpRunning then
-		set resultText to resultText & "✓ 已开放"
-	else
-		set resultText to resultText & "✗ 未开放"
-	end if
-
-	if daemonRunning and cdpRunning then
-		display notification "WorkBuddy-Skin 启动成功！背景已注入" with title "WorkBuddy-Skin" sound name "Glass"
-		display dialog "WorkBuddy-Skin 启动成功！" & return & return & resultText & return & return & "等待时间: " & waited & " 秒" buttons {"完成"} default button 1 with icon note
-	else
-		display dialog "启动可能未完成" & return & return & resultText & return & return & "请查看日志: /tmp/workbuddy-plus-launch.log" buttons {"确定"} default button 1 with icon caution
-	end if
-end startWorkBuddySkin
-
-on quitWorkBuddy()
-	try
-		tell application "WorkBuddy" to quit
-		delay 1
-	end try
-
-	-- 强制退出（如果还在运行）
-	do shell script "pkill -f 'WorkBuddy.app/Contents/MacOS' 2>/dev/null || true"
-end quitWorkBuddy
+	display notification "WorkBuddy-Skin 管理器已打开" with title "WorkBuddy-Skin" sound name "Glass"
+end run
 
 on startDaemonOnly()
 	do shell script "/Users/x/.workbuddy/binaries/node/versions/22.22.2/bin/node ~/WorkBuddy-Skin/daemon.js > ~/WorkBuddy-Skin/daemon.log 2>&1 &"
@@ -130,12 +31,3 @@ on checkPort(port)
 		return false
 	end try
 end checkPort
-
-on checkWorkBuddyCDP()
-	try
-		do shell script "pgrep -f 'remote-debugging-port=9222' > /dev/null 2>&1"
-		return true
-	on error
-		return false
-	end try
-end checkWorkBuddyCDP

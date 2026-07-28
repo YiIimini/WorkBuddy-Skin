@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorkBuddy-Skin 管理器</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: linear-gradient(135deg, #0f0a1a 0%, #1a0f2e 100%);
+    color: #e8e0f0;
+    min-height: 100vh;
+    padding: 24px 20px;
+  }
+  .container { max-width: 800px; margin: 0 auto; }
+
+  /* Header */
+  .header {
+    text-align: center; margin-bottom: 32px;
+    animation: fadeInDown 0.6s ease;
+  }
+  h1 {
+    font-size: 32px; font-weight: 700; margin-bottom: 8px;
+    background: linear-gradient(135deg, #ff6ba6, #c084fc, #60a5fa);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .subtitle { color: #8a7fa0; font-size: 14px; }
+
+  /* Status Cards */
+  .status-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px; margin-bottom: 24px;
+  }
+  .status-card {
+    background: rgba(30, 22, 45, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 107, 166, 0.15);
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+    animation: fadeInUp 0.6s ease;
+  }
+  .status-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(255, 107, 166, 0.4);
+    box-shadow: 0 8px 24px rgba(255, 107, 166, 0.2);
+  }
+  .status-icon {
+    font-size: 32px; margin-bottom: 8px;
+  }
+  .status-label {
+    font-size: 12px; color: #8a7fa0; margin-bottom: 4px;
+  }
+  .status-value {
+    font-size: 18px; font-weight: 600;
+  }
+  .status-value.ok { color: #4ade80; }
+  .status-value.error { color: #f87171; }
+  .status-value.warning { color: #fbbf24; }
+
+  /* Main Card */
+  .card {
+    background: rgba(30, 22, 45, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 107, 166, 0.15);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 16px;
+    animation: fadeInUp 0.8s ease;
+  }
+  .card-title {
+    font-size: 16px; font-weight: 600; color: #ffb6d0;
+    margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+  }
+
+  /* Buttons */
+  .btn-group {
+    display: flex; gap: 12px; flex-wrap: wrap;
+  }
+  .btn {
+    flex: 1; min-width: 140px;
+    padding: 14px 24px;
+    border: none; border-radius: 10px;
+    font-size: 14px; font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #ff6ba6, #c084fc);
+    color: white;
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(255, 107, 166, 0.4);
+  }
+  .btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e8e0f0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+  .btn:disabled {
+    opacity: 0.5; cursor: not-allowed;
+  }
+
+  /* Form */
+  .form-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px; padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+  }
+  .form-row label {
+    font-size: 14px; color: #c4b8d8; flex-shrink: 0;
+  }
+  .form-row .value {
+    font-size: 13px; color: #8a7fa0;
+    font-variant-numeric: tabular-nums;
+    min-width: 50px; text-align: right;
+  }
+  .form-row input[type="range"] {
+    flex: 1; margin: 0 16px;
+  }
+
+  /* Toggle */
+  .switch { position: relative; width: 48px; height: 26px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background: rgba(255,255,255,0.15); border-radius: 26px; transition: 0.3s;
+  }
+  .slider:before {
+    content: ""; position: absolute; height: 20px; width: 20px;
+    left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s;
+  }
+  input:checked + .slider { background: linear-gradient(135deg, #ff6ba6, #c084fc); }
+  input:checked + .slider:before { transform: translateX(22px); }
+
+  /* Range */
+  input[type="range"] {
+    -webkit-appearance: none; height: 6px;
+    background: rgba(255,255,255,0.1); border-radius: 3px;
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 18px; height: 18px;
+    background: linear-gradient(135deg, #ff6ba6, #c084fc);
+    border-radius: 50%; cursor: pointer;
+    box-shadow: 0 2px 8px rgba(255, 107, 166, 0.4);
+  }
+
+  /* Select */
+  select {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e8e0f0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  /* File Info */
+  .file-info {
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .file-icon {
+    font-size: 32px;
+  }
+  .file-details {
+    flex: 1;
+  }
+  .file-name {
+    font-size: 14px; font-weight: 600; margin-bottom: 4px;
+  }
+  .file-path {
+    font-size: 12px; color: #8a7fa0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* Animations */
+  @keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .pulse { animation: pulse 2s ease-in-out infinite; }
+
+  /* Loading */
+  .loading {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <h1>🎨 WorkBuddy-Skin</h1>
+    <div class="subtitle">背景注入管理器 v2.0.1</div>
+  </div>
+
+  <!-- Status Grid -->
+  <div class="status-grid">
+    <div class="status-card">
+      <div class="status-icon">🖥️</div>
+      <div class="status-label">WorkBuddy</div>
+      <div class="status-value" id="wbStatus">检查中...</div>
+    </div>
+    <div class="status-card">
+      <div class="status-icon">🔌</div>
+      <div class="status-label">CDP 端口</div>
+      <div class="status-value" id="cdpStatus">检查中...</div>
+    </div>
+    <div class="status-card">
+      <div class="status-icon">⚙️</div>
+      <div class="status-label">守护进程</div>
+      <div class="status-value" id="daemonStatus">检查中...</div>
+    </div>
+    <div class="status-card">
+      <div class="status-icon">🎬</div>
+      <div class="status-label">背景状态</div>
+      <div class="status-value" id="bgStatus">检查中...</div>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="card">
+    <div class="card-title">⚡ 快速操作</div>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="startWorkBuddySkin()">
+        <span id="startBtnText">🚀 启动 WorkBuddy-Skin</span>
+        <span id="startBtnLoading" class="loading" style="display:none"></span>
+      </button>
+      <button class="btn btn-secondary" onclick="refreshStatus()">
+        🔄 刷新状态
+      </button>
+    </div>
+  </div>
+
+  <!-- Background Settings -->
+  <div class="card">
+    <div class="card-title">🎬 背景设置</div>
+
+    <div class="file-info" id="fileInfo" style="display:none">
+      <div class="file-icon" id="fileIcon">📄</div>
+      <div class="file-details">
+        <div class="file-name" id="fileName">未选择文件</div>
+        <div class="file-path" id="filePath">-</div>
+      </div>
+    </div>
+
+    <div class="btn-group" style="margin-bottom: 16px">
+      <button class="btn btn-secondary" onclick="selectFile()">📁 选择文件</button>
+      <button class="btn btn-secondary" onclick="clearBackground()">🗑️ 清除背景</button>
+    </div>
+
+    <div class="form-row">
+      <label>启用背景</label>
+      <label class="switch">
+        <input type="checkbox" id="enabled" onchange="updateConfig()">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label>不透明度</label>
+      <input type="range" id="opacity" min="10" max="100" value="100" oninput="updateConfig()">
+      <span class="value" id="opacityValue">100%</span>
+    </div>
+
+    <div class="form-row">
+      <label>暗色遮罩</label>
+      <input type="range" id="overlay" min="0" max="80" value="50" oninput="updateConfig()">
+      <span class="value" id="overlayValue">50%</span>
+    </div>
+
+    <div class="form-row">
+      <label>模糊</label>
+      <select id="blur" onchange="updateConfig()">
+        <option value="0px">无</option>
+        <option value="5px">轻微</option>
+        <option value="10px">中等</option>
+        <option value="20px">强烈</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label>填充方式</label>
+      <select id="scale" onchange="updateConfig()">
+        <option value="cover">覆盖</option>
+        <option value="contain">包含</option>
+        <option value="fill">填充</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label>位置</label>
+      <select id="position" onchange="updateConfig()">
+        <option value="center">居中</option>
+        <option value="top">顶部</option>
+        <option value="bottom">底部</option>
+        <option value="left">左侧</option>
+        <option value="right">右侧</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:17890/api';
+let currentConfig = null;
+
+// 初始化
+async function init() {
+  await refreshStatus();
+  await loadConfig();
+  setInterval(refreshStatus, 5000);
+}
+
+// 刷新状态
+async function refreshStatus() {
+  try {
+    const res = await fetch(API + '/health');
+    const data = await res.json();
+
+    // 守护进程
+    updateStatus('daemonStatus', data.ok ? '运行中' : '未运行', data.ok ? 'ok' : 'error');
+
+    // CDP 端口
+    const cdpRes = await fetch('http://localhost:9222/json/version').catch(() => null);
+    updateStatus('cdpStatus', cdpRes ? '已开放' : '未开放', cdpRes ? 'ok' : 'error');
+
+    // WorkBuddy
+    const wbRunning = cdpRes !== null;
+    updateStatus('wbStatus', wbRunning ? '运行中' : '未运行', wbRunning ? 'ok' : 'error');
+
+    // 背景状态
+    if (currentConfig) {
+      const bgActive = currentConfig.enabled && currentConfig.source;
+      updateStatus('bgStatus', bgActive ? '已启用' : '未启用', bgActive ? 'ok' : 'warning');
+    }
+  } catch (e) {
+    console.error('状态刷新失败:', e);
+  }
+}
+
+// 更新状态显示
+function updateStatus(id, text, type) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'status-value ' + type;
+}
+
+// 加载配置
+async function loadConfig() {
+  try {
+    const res = await fetch(API + '/config');
+    currentConfig = await res.json();
+
+    document.getElementById('enabled').checked = currentConfig.enabled;
+    document.getElementById('opacity').value = (currentConfig.opacity || 1) * 100;
+    document.getElementById('opacityValue').textContent = Math.round((currentConfig.opacity || 1) * 100) + '%';
+    document.getElementById('overlay').value = (currentConfig.overlay || 0.5) * 100;
+    document.getElementById('overlayValue').textContent = Math.round((currentConfig.overlay || 0.5) * 100) + '%';
+    document.getElementById('blur').value = currentConfig.blur || '0px';
+    document.getElementById('scale').value = currentConfig.scale || 'cover';
+    document.getElementById('position').value = currentConfig.position || 'center';
+
+    if (currentConfig.source) {
+      showFileInfo(currentConfig.source, currentConfig.type);
+    }
+
+    refreshStatus();
+  } catch (e) {
+    console.error('配置加载失败:', e);
+  }
+}
+
+// 更新配置
+async function updateConfig() {
+  if (!currentConfig) return;
+
+  currentConfig.enabled = document.getElementById('enabled').checked;
+  currentConfig.opacity = document.getElementById('opacity').value / 100;
+  document.getElementById('opacityValue').textContent = document.getElementById('opacity').value + '%';
+  currentConfig.overlay = document.getElementById('overlay').value / 100;
+  document.getElementById('overlayValue').textContent = document.getElementById('overlay').value + '%';
+  currentConfig.blur = document.getElementById('blur').value;
+  currentConfig.scale = document.getElementById('scale').value;
+  currentConfig.position = document.getElementById('position').value;
+
+  try {
+    await fetch(API + '/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(currentConfig)
+    });
+  } catch (e) {
+    console.error('配置保存失败:', e);
+  }
+}
+
+// 选择文件
+async function selectFile() {
+  try {
+    const res = await fetch(API + '/pick');
+    const data = await res.json();
+
+    if (data.ok && data.path) {
+      currentConfig.source = data.path;
+      currentConfig.type = data.path.match(/\.(mp4|webm|mov|avi|mkv|m4v)$/i) ? 'video' : 'image';
+      currentConfig.enabled = true;
+      document.getElementById('enabled').checked = true;
+
+      showFileInfo(data.path, currentConfig.type);
+      await updateConfig();
+    }
+  } catch (e) {
+    console.error('文件选择失败:', e);
+  }
+}
+
+// 显示文件信息
+function showFileInfo(path, type) {
+  const fileName = path.split('/').pop();
+  document.getElementById('fileName').textContent = fileName;
+  document.getElementById('filePath').textContent = path;
+  document.getElementById('fileIcon').textContent = type === 'video' ? '🎬' : '🖼️';
+  document.getElementById('fileInfo').style.display = 'flex';
+}
+
+// 清除背景
+async function clearBackground() {
+  currentConfig.enabled = false;
+  currentConfig.source = '';
+  document.getElementById('enabled').checked = false;
+  document.getElementById('fileInfo').style.display = 'none';
+  await updateConfig();
+}
+
+// 启动 WorkBuddy-Skin
+async function startWorkBuddySkin() {
+  const btn = event.target.closest('button');
+  const btnText = document.getElementById('startBtnText');
+  const btnLoading = document.getElementById('startBtnLoading');
+
+  btn.disabled = true;
+  btnText.style.display = 'none';
+  btnLoading.style.display = 'inline-block';
+
+  try {
+    const res = await fetch(API + '/start-workbuddy', { method: 'POST' });
+    const data = await res.json();
+
+    if (data.ok) {
+      btnText.textContent = '✓ 启动成功';
+      setTimeout(refreshStatus, 3000);
+    } else {
+      btnText.textContent = '✗ 启动失败';
+      alert('启动失败: ' + (data.error || '未知错误'));
+    }
+  } catch (e) {
+    btnText.textContent = '✗ 启动失败';
+    alert('启动失败: ' + e.message);
+  } finally {
+    setTimeout(() => {
+      btn.disabled = false;
+      btnText.style.display = 'inline';
+      btnText.textContent = '🚀 启动 WorkBuddy-Skin';
+      btnLoading.style.display = 'none';
+    }, 3000);
+  }
+}
+
+// 启动
+init();
+</script>
+</body>
+</html>
