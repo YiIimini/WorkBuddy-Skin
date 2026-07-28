@@ -1,68 +1,52 @@
 import Cocoa
 import UniformTypeIdentifiers
 
-// ─── 颜色扩展 ──────────────────────────────────────────────
+// ─── 颜色 ──────────────────────────────────────────────────
 extension NSColor {
     static let bgDark = NSColor(red: 0.06, green: 0.04, blue: 0.10, alpha: 1.0)
     static let bgCard = NSColor(red: 0.12, green: 0.08, blue: 0.18, alpha: 0.9)
-    static let bgCardHover = NSColor(red: 0.16, green: 0.10, blue: 0.24, alpha: 0.9)
     static let accentPink = NSColor(red: 1.0, green: 0.42, blue: 0.65, alpha: 1.0)
-    static let accentPurple = NSColor(red: 0.75, green: 0.52, blue: 0.99, alpha: 1.0)
-    static let accentBlue = NSColor(red: 0.38, green: 0.65, blue: 0.98, alpha: 1.0)
     static let textPrimary = NSColor(red: 0.91, green: 0.88, blue: 0.94, alpha: 1.0)
     static let textSecondary = NSColor(red: 0.54, green: 0.50, blue: 0.63, alpha: 1.0)
     static let statusOk = NSColor(red: 0.29, green: 0.87, blue: 0.50, alpha: 1.0)
     static let statusErr = NSColor(red: 0.97, green: 0.55, blue: 0.55, alpha: 1.0)
-    static let statusWarn = NSColor(red: 0.98, green: 0.75, blue: 0.30, alpha: 1.0)
-}
-
-// ─── 圆角视图 ──────────────────────────────────────────────
-class CardView: NSView {
-    var cornerRadius: CGFloat = 12
-    var bgColor: NSColor = .bgCard
-
-    override var wantsUpdateLayer: Bool { true }
-
-    override func updateLayer() {
-        layer?.backgroundColor = bgColor.cgColor
-        layer?.cornerRadius = cornerRadius
-        layer?.borderWidth = 1
-        layer?.borderColor = NSColor.accentPink.withAlphaComponent(0.12).cgColor
-    }
 }
 
 // ─── 状态卡片 ──────────────────────────────────────────────
-class StatusCard: CardView {
+class StatusCard: NSView {
     let titleLabel = NSTextField(labelWithString: "")
     let valueLabel = NSTextField(labelWithString: "")
 
     init(title: String, frame: NSRect) {
         super.init(frame: frame)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.bgCard.cgColor
+        layer?.cornerRadius = 10
+        layer?.borderWidth = 1
+        layer?.borderColor = NSColor.accentPink.withAlphaComponent(0.12).cgColor
+
         titleLabel.stringValue = title
         titleLabel.font = NSFont.systemFont(ofSize: 11)
         titleLabel.textColor = .textSecondary
         titleLabel.alignment = .center
+        titleLabel.frame = NSRect(x: 8, y: bounds.height - 22, width: bounds.width - 16, height: 14)
+        addSubview(titleLabel)
 
         valueLabel.stringValue = "—"
-        valueLabel.font = NSFont.boldSystemFont(ofSize: 15)
+        valueLabel.font = NSFont.boldSystemFont(ofSize: 14)
         valueLabel.textColor = .textSecondary
         valueLabel.alignment = .center
-
-        addSubview(titleLabel)
+        valueLabel.frame = NSRect(x: 8, y: 14, width: bounds.width - 16, height: 22)
         addSubview(valueLabel)
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
-    override func layout() {
-        super.layout()
-        titleLabel.frame = NSRect(x: 8, y: bounds.height - 22, width: bounds.width - 16, height: 14)
-        valueLabel.frame = NSRect(x: 8, y: 12, width: bounds.width - 16, height: 24)
-    }
-
     func update(_ value: String, _ ok: Bool) {
-        valueLabel.stringValue = value
-        valueLabel.textColor = ok ? .statusOk : .statusErr
+        DispatchQueue.main.async { [weak self] in
+            self?.valueLabel.stringValue = value
+            self?.valueLabel.textColor = ok ? .statusOk : .statusErr
+        }
     }
 }
 
@@ -70,27 +54,24 @@ class StatusCard: CardView {
 class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
 
-    // 状态卡片
     var wbCard: StatusCard!
     var cdpCard: StatusCard!
     var daemonCard: StatusCard!
     var bgCard: StatusCard!
 
-    // 控件
     var startButton: NSButton!
-    var refreshButton: NSButton!
-    var openWebButton: NSButton!
     var selectFileButton: NSButton!
     var clearButton: NSButton!
+    var openWebButton: NSButton!
     var enabledCheckbox: NSButton!
     var opacitySlider: NSSlider!
     var overlaySlider: NSSlider!
+    var opacityValueLabel: NSTextField!
+    var overlayValueLabel: NSTextField!
     var blurPopup: NSPopUpButton!
     var scalePopup: NSPopUpButton!
     var positionPopup: NSPopUpButton!
     var fileLabel: NSTextField!
-    var opacityValueLabel: NSTextField!
-    var overlayValueLabel: NSTextField!
 
     let daemonURL = "http://localhost:17890"
     var currentConfig: [String: Any] = [:]
@@ -98,6 +79,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         createWindow()
         startDaemonIfNeeded()
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             self.refreshStatus()
             self.loadConfig()
@@ -107,18 +89,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // ─── 窗口创建 ──────────────────────────────────────────
+    // ─── 窗口 ──────────────────────────────────────────────
     func createWindow() {
         let W: CGFloat = 720
-        let H: CGFloat = 860
+        let H: CGFloat = 780
 
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: W, height: H),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
-        window.title = ""
+        window.title = "WorkBuddy-Skin"
         window.center()
         window.minSize = NSSize(width: W, height: H)
         window.maxSize = NSSize(width: W, height: H)
@@ -128,189 +110,153 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         bg.layer?.backgroundColor = NSColor.bgDark.cgColor
         window.contentView = bg
 
-        let padding: CGFloat = 24
-        var y: CGFloat = H - padding
+        let p: CGFloat = 24
+        var y: CGFloat = H - p
 
-        // ── 标题区 ──
-        let titleLabel = NSTextField(labelWithString: "WorkBuddy-Skin")
-        titleLabel.font = NSFont.boldSystemFont(ofSize: 30)
-        titleLabel.textColor = .textPrimary
+        // 标题
+        let titleLabel = makeLabel("WorkBuddy-Skin", size: 28, bold: true, color: .textPrimary)
         titleLabel.alignment = .center
-        titleLabel.frame = NSRect(x: padding, y: y - 40, width: W - padding * 2, height: 40)
+        titleLabel.frame = NSRect(x: p, y: y - 38, width: W - p*2, height: 36)
         bg.addSubview(titleLabel)
-        y -= 48
+        y -= 46
 
-        let versionLabel = NSTextField(labelWithString: "背景注入管理器 v2.1")
-        versionLabel.font = NSFont.systemFont(ofSize: 13)
-        versionLabel.textColor = .textSecondary
-        versionLabel.alignment = .center
-        versionLabel.frame = NSRect(x: padding, y: y - 18, width: W - padding * 2, height: 16)
-        bg.addSubview(versionLabel)
-        y -= 36
+        let subLabel = makeLabel("背景注入管理器 v2.1", size: 13, bold: false, color: .textSecondary)
+        subLabel.alignment = .center
+        subLabel.frame = NSRect(x: p, y: y - 16, width: W - p*2, height: 14)
+        bg.addSubview(subLabel)
+        y -= 32
 
-        // ── 状态卡片 ──
-        let cardW: CGFloat = (W - padding * 2 - 30) / 4
-        let cardH: CGFloat = 72
+        // 状态卡片
+        let cardW: CGFloat = (W - p*2 - 30) / 4
+        let cardH: CGFloat = 64
         let gap: CGFloat = 10
 
-        wbCard = StatusCard(title: "WorkBuddy", frame: NSRect(x: padding, y: y - cardH, width: cardW, height: cardH))
+        wbCard = StatusCard(title: "WorkBuddy", frame: NSRect(x: p, y: y - cardH, width: cardW, height: cardH))
+        cdpCard = StatusCard(title: "CDP 端口", frame: NSRect(x: p + (cardW+gap), y: y - cardH, width: cardW, height: cardH))
+        daemonCard = StatusCard(title: "守护进程", frame: NSRect(x: p + (cardW+gap)*2, y: y - cardH, width: cardW, height: cardH))
+        bgCard = StatusCard(title: "背景状态", frame: NSRect(x: p + (cardW+gap)*3, y: y - cardH, width: cardW, height: cardH))
         bg.addSubview(wbCard)
-
-        cdpCard = StatusCard(title: "CDP 端口", frame: NSRect(x: padding + cardW + gap, y: y - cardH, width: cardW, height: cardH))
         bg.addSubview(cdpCard)
-
-        daemonCard = StatusCard(title: "守护进程", frame: NSRect(x: padding + (cardW + gap) * 2, y: y - cardH, width: cardW, height: cardH))
         bg.addSubview(daemonCard)
-
-        bgCard = StatusCard(title: "背景状态", frame: NSRect(x: padding + (cardW + gap) * 3, y: y - cardH, width: cardW, height: cardH))
         bg.addSubview(bgCard)
-
         y -= cardH + 24
 
-        // ── 快速操作 ──
-        y = addSectionTitle("快速操作", x: padding, y: y, width: W - padding * 2, view: bg)
+        // 快速操作
+        y = addSection("快速操作", x: p, y: y, w: W - p*2, view: bg)
+        let btnW = (W - p*2 - gap*2) / 3
+        let btnH: CGFloat = 36
 
-        let btnW: CGFloat = (W - padding * 2 - gap * 2) / 3
-        let btnH: CGFloat = 38
-
-        startButton = createButton("🚀 启动", frame: NSRect(x: padding, y: y - btnH, width: btnW, height: btnH), action: #selector(startWorkBuddy), primary: true)
+        startButton = makeButton("🚀 启动", frame: NSRect(x: p, y: y - btnH, width: btnW, height: btnH), action: #selector(startWorkBuddy))
+        openWebButton = makeButton("🌐 Web 面板", frame: NSRect(x: p + btnW + gap, y: y - btnH, width: btnW, height: btnH), action: #selector(openWebPanel))
+        let refreshButton = makeButton("🔄 刷新", frame: NSRect(x: p + (btnW+gap)*2, y: y - btnH, width: btnW, height: btnH), action: #selector(refreshStatus))
         bg.addSubview(startButton)
-
-        refreshButton = createButton("🔄 刷新", frame: NSRect(x: padding + btnW + gap, y: y - btnH, width: btnW, height: btnH), action: #selector(refreshStatus), primary: false)
-        bg.addSubview(refreshButton)
-
-        openWebButton = createButton("🌐 Web 面板", frame: NSRect(x: padding + (btnW + gap) * 2, y: y - btnH, width: btnW, height: btnH), action: #selector(openWebPanel), primary: false)
         bg.addSubview(openWebButton)
-
+        bg.addSubview(refreshButton)
         y -= btnH + 24
 
-        // ── 背景设置 ──
-        y = addSectionTitle("背景设置", x: padding, y: y, width: W - padding * 2, view: bg)
+        // 背景设置
+        y = addSection("背景设置", x: p, y: y, w: W - p*2, view: bg)
 
-        // 文件选择区
-        let fileCard = CardView(frame: NSRect(x: padding, y: y - 50, width: W - padding * 2, height: 50))
-        fileCard.cornerRadius = 8
-        bg.addSubview(fileCard)
-
-        fileLabel = NSTextField(labelWithString: "📄 未选择文件")
-        fileLabel.font = NSFont.systemFont(ofSize: 13)
-        fileLabel.textColor = .textSecondary
+        fileLabel = makeLabel("📄 未选择文件", size: 13, bold: false, color: .textSecondary)
         fileLabel.lineBreakMode = .byTruncatingTail
-        fileLabel.frame = NSRect(x: 12, y: 16, width: fileCard.bounds.width - 24, height: 18)
-        fileCard.addSubview(fileLabel)
+        fileLabel.frame = NSRect(x: p, y: y - 20, width: W - p*2, height: 18)
+        bg.addSubview(fileLabel)
+        y -= 28
 
-        y -= 58
-
-        // 文件操作按钮
-        selectFileButton = createButton("📁 选择文件", frame: NSRect(x: padding, y: y - btnH, width: btnW, height: btnH), action: #selector(selectFile), primary: false)
+        selectFileButton = makeButton("📁 选择文件", frame: NSRect(x: p, y: y - btnH, width: btnW, height: btnH), action: #selector(selectFile))
+        clearButton = makeButton("🗑️ 清除", frame: NSRect(x: p + btnW + gap, y: y - btnH, width: btnW, height: btnH), action: #selector(clearBackground))
         bg.addSubview(selectFileButton)
-
-        clearButton = createButton("🗑️ 清除", frame: NSRect(x: padding + btnW + gap, y: y - btnH, width: btnW, height: btnH), action: #selector(clearBackground), primary: false)
         bg.addSubview(clearButton)
-
         y -= btnH + 16
 
-        // 启用开关
         enabledCheckbox = NSButton(checkboxWithTitle: "启用背景", target: self, action: #selector(updateConfig))
-        enabledCheckbox.frame = NSRect(x: padding, y: y - 24, width: 200, height: 24)
-        styleCheckbox(enabledCheckbox)
+        enabledCheckbox.frame = NSRect(x: p, y: y - 22, width: 200, height: 22)
         bg.addSubview(enabledCheckbox)
+        y -= 34
+
+        // 滑块行
+        opacityValueLabel = makeLabel("100%", size: 12, bold: false, color: .textSecondary)
+        opacityValueLabel.alignment = .right
+        opacitySlider = makeSliderRow("不透明度", valueLabel: opacityValueLabel, x: p, y: y, w: W - p*2, view: bg, min: 10, max: 100, init: 100)
+        opacitySlider.target = self
+        opacitySlider.action = #selector(sliderChanged)
         y -= 36
 
-        // 滑块和下拉菜单
-        y = addSliderRow("不透明度", x: padding, y: y, width: W - padding * 2, view: bg,
-                         slider: &opacitySlider, valueLabel: &opacityValueLabel,
-                         minValue: 10, maxValue: 100, initialValue: 100, action: #selector(sliderChanged))
+        overlayValueLabel = makeLabel("50%", size: 12, bold: false, color: .textSecondary)
+        overlayValueLabel.alignment = .right
+        overlaySlider = makeSliderRow("暗色遮罩", valueLabel: overlayValueLabel, x: p, y: y, w: W - p*2, view: bg, min: 0, max: 80, init: 50)
+        overlaySlider.target = self
+        overlaySlider.action = #selector(sliderChanged)
+        y -= 36
 
-        y = addSliderRow("暗色遮罩", x: padding, y: y, width: W - padding * 2, view: bg,
-                         slider: &overlaySlider, valueLabel: &overlayValueLabel,
-                         minValue: 0, maxValue: 80, initialValue: 50, action: #selector(sliderChanged))
+        blurPopup = makePopupRow("模糊", items: ["无", "轻微 (5px)", "中等 (10px)", "强烈 (20px)"], x: p, y: y, w: W - p*2, view: bg)
+        blurPopup.target = self
+        blurPopup.action = #selector(updateConfig)
+        y -= 34
 
-        y = addPopupRow("模糊", x: padding, y: y, width: W - padding * 2, view: bg,
-                        popup: &blurPopup, items: ["无", "轻微 (5px)", "中等 (10px)", "强烈 (20px)"],
-                        action: #selector(updateConfig))
+        scalePopup = makePopupRow("填充方式", items: ["覆盖", "包含", "填充"], x: p, y: y, w: W - p*2, view: bg)
+        scalePopup.target = self
+        scalePopup.action = #selector(updateConfig)
+        y -= 34
 
-        y = addPopupRow("填充方式", x: padding, y: y, width: W - padding * 2, view: bg,
-                        popup: &scalePopup, items: ["覆盖", "包含", "填充"],
-                        action: #selector(updateConfig))
-
-        y = addPopupRow("位置", x: padding, y: y, width: W - padding * 2, view: bg,
-                        popup: &positionPopup, items: ["居中", "顶部", "底部", "左侧", "右侧"],
-                        action: #selector(updateConfig))
+        positionPopup = makePopupRow("位置", items: ["居中", "顶部", "底部", "左侧", "右侧"], x: p, y: y, w: W - p*2, view: bg)
+        positionPopup.target = self
+        positionPopup.action = #selector(updateConfig)
 
         window.makeKeyAndOrderFront(nil)
     }
 
-    // ─── UI 辅助方法 ────────────────────────────────────────
-    func addSectionTitle(_ title: String, x: CGFloat, y: CGFloat, width: CGFloat, view: NSView) -> CGFloat {
-        let label = NSTextField(labelWithString: title)
-        label.font = NSFont.boldSystemFont(ofSize: 15)
-        label.textColor = .accentPink
-        label.frame = NSRect(x: x, y: y - 22, width: width, height: 20)
-        view.addSubview(label)
-        return y - 30
+    // ─── UI 辅助 ───────────────────────────────────────────
+    func makeLabel(_ text: String, size: CGFloat, bold: Bool, color: NSColor) -> NSTextField {
+        let label = NSTextField(labelWithString: text)
+        label.font = bold ? NSFont.boldSystemFont(ofSize: size) : NSFont.systemFont(ofSize: size)
+        label.textColor = color
+        return label
     }
 
-    func createButton(_ title: String, frame: NSRect, action: Selector, primary: Bool) -> NSButton {
+    func makeButton(_ title: String, frame: NSRect, action: Selector) -> NSButton {
         let btn = NSButton(frame: frame)
         btn.title = title
         btn.bezelStyle = .rounded
         btn.target = self
         btn.action = action
         btn.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-        if primary {
-            btn.keyEquivalent = "\r"
-        }
         return btn
     }
 
-    func styleCheckbox(_ checkbox: NSButton) {
-        // 使用系统默认样式即可
+    func addSection(_ title: String, x: CGFloat, y: CGFloat, w: CGFloat, view: NSView) -> CGFloat {
+        let label = makeLabel(title, size: 15, bold: true, color: .accentPink)
+        label.frame = NSRect(x: x, y: y - 20, width: w, height: 18)
+        view.addSubview(label)
+        return y - 28
     }
 
-    func addSliderRow(_ title: String, x: CGFloat, y: CGFloat, width: CGFloat, view: NSView,
-                      slider: inout NSSlider, valueLabel: inout NSTextField,
-                      minValue: Double, maxValue: Double, initialValue: Double, action: Selector) -> CGFloat {
-        let label = NSTextField(labelWithString: title)
-        label.font = NSFont.systemFont(ofSize: 13)
-        label.textColor = .textPrimary
-        label.frame = NSRect(x: x, y: y - 20, width: 100, height: 18)
-        view.addSubview(label)
+    func makeSliderRow(_ title: String, valueLabel: NSTextField, x: CGFloat, y: CGFloat, w: CGFloat, view: NSView, min: Double, max: Double, init: Double) -> NSSlider {
+        let titleLabel = makeLabel(title, size: 13, bold: false, color: .textPrimary)
+        titleLabel.frame = NSRect(x: x, y: y - 18, width: 90, height: 16)
+        view.addSubview(titleLabel)
 
-        valueLabel = NSTextField(labelWithString: "")
-        valueLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)
-        valueLabel.textColor = .textSecondary
-        valueLabel.alignment = .right
-        valueLabel.frame = NSRect(x: x + width - 60, y: y - 20, width: 60, height: 18)
+        valueLabel.frame = NSRect(x: x + w - 50, y: y - 18, width: 50, height: 16)
         view.addSubview(valueLabel)
 
-        slider = NSSlider(frame: NSRect(x: x + 110, y: y - 22, width: width - 180, height: 22))
-        slider.minValue = minValue
-        slider.maxValue = maxValue
-        slider.doubleValue = initialValue
-        slider.target = self
-        slider.action = action
+        let slider = NSSlider(frame: NSRect(x: x + 100, y: y - 20, width: w - 160, height: 20))
+        slider.minValue = min
+        slider.maxValue = max
+        slider.doubleValue = `init`
         view.addSubview(slider)
-
-        return y - 36
+        return slider
     }
 
-    func addPopupRow(_ title: String, x: CGFloat, y: CGFloat, width: CGFloat, view: NSView,
-                     popup: inout NSPopUpButton, items: [String], action: Selector) -> CGFloat {
-        let label = NSTextField(labelWithString: title)
-        label.font = NSFont.systemFont(ofSize: 13)
-        label.textColor = .textPrimary
-        label.frame = NSRect(x: x, y: y - 20, width: 100, height: 18)
-        view.addSubview(label)
+    func makePopupRow(_ title: String, items: [String], x: CGFloat, y: CGFloat, w: CGFloat, view: NSView) -> NSPopUpButton {
+        let titleLabel = makeLabel(title, size: 13, bold: false, color: .textPrimary)
+        titleLabel.frame = NSRect(x: x, y: y - 18, width: 90, height: 16)
+        view.addSubview(titleLabel)
 
-        popup = NSPopUpButton(frame: NSRect(x: x + 110, y: y - 24, width: 180, height: 26))
+        let popup = NSPopUpButton(frame: NSRect(x: x + 100, y: y - 22, width: 180, height: 24))
         popup.addItems(withTitles: items)
-        popup.target = self
-        popup.action = action
         popup.font = NSFont.systemFont(ofSize: 12)
         view.addSubview(popup)
-
-        return y - 36
+        return popup
     }
 
     // ─── 启动 WorkBuddy ────────────────────────────────────
@@ -319,17 +265,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         startButton.title = "⏳ 启动中..."
 
         DispatchQueue.global().async {
-            // 先退出 WorkBuddy
-            let quitTask = Process()
-            quitTask.launchPath = "/usr/bin/osascript"
-            quitTask.arguments = ["-e", "tell application \"WorkBuddy\" to quit"]
-            quitTask.standardOutput = FileHandle.nullDevice
-            quitTask.standardError = FileHandle.nullDevice
-            quitTask.launch()
-            quitTask.waitUntilExit()
+            // 退出 WorkBuddy
+            let quit = Process()
+            quit.launchPath = "/usr/bin/osascript"
+            quit.arguments = ["-e", "tell application \"WorkBuddy\" to quit"]
+            quit.standardOutput = FileHandle.nullDevice
+            quit.standardError = FileHandle.nullDevice
+            quit.launch()
+            quit.waitUntilExit()
             Thread.sleep(forTimeInterval: 3)
 
-            // 启动 launcher
+            // 启动
             let task = Process()
             task.launchPath = "/bin/bash"
             task.arguments = ["\(NSHomeDirectory())/WorkBuddy-Skin/launcher.sh"]
@@ -337,7 +283,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             task.standardError = FileHandle.nullDevice
             task.launch()
 
-            // 等待 CDP 端口开放
             var waited = 0
             while waited < 30 {
                 Thread.sleep(forTimeInterval: 1)
@@ -359,38 +304,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let daemonOk = self.checkPort(17890)
             let cdpOk = self.checkPort(9222)
 
-            DispatchQueue.main.async {
-                self.daemonCard.update(daemonOk ? "运行中" : "未运行", daemonOk)
-                self.cdpCard.update(cdpOk ? "已开放" : "未开放", cdpOk)
-                self.wbCard.update(cdpOk ? "运行中" : "未运行", cdpOk)
+            self.daemonCard.update(daemonOk ? "运行中" : "未运行", daemonOk)
+            self.cdpCard.update(cdpOk ? "已开放" : "未开放", cdpOk)
+            self.wbCard.update(cdpOk ? "运行中" : "未运行", cdpOk)
 
-                if let enabled = self.currentConfig["enabled"] as? Bool,
-                   let source = self.currentConfig["source"] as? String {
-                    let bgActive = enabled && !source.isEmpty
-                    self.bgCard.update(bgActive ? "已启用" : "未启用", bgActive)
-                } else {
-                    self.bgCard.update("未配置", false)
-                }
+            if let enabled = self.currentConfig["enabled"] as? Bool,
+               let source = self.currentConfig["source"] as? String {
+                let bgActive = enabled && !source.isEmpty
+                self.bgCard.update(bgActive ? "已启用" : "未启用", bgActive)
             }
         }
     }
 
-    // ─── 打开 Web 面板 ─────────────────────────────────────
     @objc func openWebPanel() {
         NSWorkspace.shared.open(URL(string: daemonURL)!)
     }
 
-    // ─── 选择文件 ──────────────────────────────────────────
     @objc func selectFile() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
         panel.message = "选择背景图片或视频"
-
-        let videoTypes: [UTType] = [UTType.movie, UTType.video, UTType.mpeg4Movie, UTType.quickTimeMovie, UTType.avi]
-        let imageTypes: [UTType] = [UTType.image, UTType.jpeg, UTType.png, UTType.gif]
-        panel.allowedContentTypes = videoTypes + imageTypes
+        panel.allowedContentTypes = [UTType.movie, UTType.video, UTType.image]
 
         panel.begin { [weak self] response in
             guard let self = self else { return }
@@ -407,7 +343,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // ─── 清除背景 ──────────────────────────────────────────
     @objc func clearBackground() {
         currentConfig["enabled"] = false
         currentConfig["source"] = ""
@@ -416,16 +351,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         updateConfig()
     }
 
-    // ─── 滑块变化 ──────────────────────────────────────────
     @objc func sliderChanged() {
-        let opacity = Int(opacitySlider.doubleValue)
-        let overlay = Int(overlaySlider.doubleValue)
-        opacityValueLabel.stringValue = "\(opacity)%"
-        overlayValueLabel.stringValue = "\(overlay)%"
+        opacityValueLabel.stringValue = "\(Int(opacitySlider.doubleValue))%"
+        overlayValueLabel.stringValue = "\(Int(overlaySlider.doubleValue))%"
         updateConfig()
     }
 
-    // ─── 更新配置 ──────────────────────────────────────────
     @objc func updateConfig() {
         currentConfig["enabled"] = enabledCheckbox.state == .on
         currentConfig["opacity"] = opacitySlider.doubleValue / 100
@@ -443,10 +374,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         saveConfig()
     }
 
-    // ─── 加载配置 ──────────────────────────────────────────
     func loadConfig() {
         guard let url = URL(string: "\(daemonURL)/api/config") else { return }
-        let task = URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
             guard let self = self, let data = data,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
             DispatchQueue.main.async {
@@ -466,24 +396,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if let blur = json["blur"] as? String, let idx = blurValues.firstIndex(of: blur) {
                     self.blurPopup.selectItem(at: idx)
                 }
-
                 let scaleValues = ["cover", "contain", "fill"]
                 if let scale = json["scale"] as? String, let idx = scaleValues.firstIndex(of: scale) {
                     self.scalePopup.selectItem(at: idx)
                 }
-
                 let positionValues = ["center", "top", "bottom", "left", "right"]
                 if let pos = json["position"] as? String, let idx = positionValues.firstIndex(of: pos) {
                     self.positionPopup.selectItem(at: idx)
                 }
-
                 self.refreshStatus()
             }
-        }
-        task.resume()
+        }.resume()
     }
 
-    // ─── 保存配置 ──────────────────────────────────────────
     func saveConfig() {
         guard let url = URL(string: "\(daemonURL)/api/config") else { return }
         var request = URLRequest(url: url)
@@ -493,7 +418,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         URLSession.shared.dataTask(with: request).resume()
     }
 
-    // ─── 守护进程 ──────────────────────────────────────────
     func startDaemonIfNeeded() {
         if !checkPort(17890) {
             DispatchQueue.global().async {
@@ -511,7 +435,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // ─── 端口检查 ──────────────────────────────────────────
     func checkPort(_ port: Int) -> Bool {
         let task = Process()
         task.launchPath = "/usr/bin/nc"
@@ -523,9 +446,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return task.terminationStatus == 0
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        true
-    }
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 }
 
 // ─── 入口 ──────────────────────────────────────────────────
