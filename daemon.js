@@ -281,20 +281,53 @@ function buildInjectScript() {
       document.body.insertBefore(bgLayer, document.body.firstChild);
       document.body.insertBefore(overlay, bgLayer.nextSibling);
       console.log('[wb-bg] 背景层已插入');
+
+      // 重新应用当前配置（如果有）
+      if (currentConfig) {
+        console.log('[wb-bg] 重新应用配置');
+        applyConfig(currentConfig, currentMediaDataUri);
+      }
     }
   }
   insertLayer();
 
+  // 保存当前的 mediaDataUri
+  var currentMediaDataUri = null;
+
   // 暴露配置应用函数供 CDP 调用
   window.__wbBgApplyConfig = function(cfg, mediaDataUri) {
-    console.log('[wb-bg] 收到配置推送:', cfg, mediaDataUri ? 'with data URI' : 'without data URI');
+    console.log('[wb-bg] 收到配置推送:', cfg, mediaDataUri ? 'with file://' : 'without file://');
+    currentMediaDataUri = mediaDataUri;
     applyConfig(cfg, mediaDataUri);
   };
 
-  var observer = new MutationObserver(function() {
-    if (!document.getElementById('wb-bg-layer')) insertLayer();
+  // 强化的 MutationObserver：监控整个 DOM 树变化
+  var observer = new MutationObserver(function(mutations) {
+    var bgLayerExists = !!document.getElementById('wb-bg-layer');
+    if (!bgLayerExists) {
+      console.log('[wb-bg] 检测到背景层被移除，重新插入');
+      insertLayer();
+    }
   });
-  if (document.body) observer.observe(document.body, { childList: true, subtree: false });
+
+  // 监控 body 的所有子元素变化（包括深层嵌套）
+  if (document.body) {
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,  // 改为 true，监控所有后代节点
+      attributes: false,
+      characterData: false
+    });
+    console.log('[wb-bg] MutationObserver 已启动（监控整个 DOM 树）');
+  }
+
+  // 定期检查（每 3 秒）作为后备机制
+  setInterval(function() {
+    if (!document.getElementById('wb-bg-layer')) {
+      console.log('[wb-bg] 定期检查：背景层不存在，重新插入');
+      insertLayer();
+    }
+  }, 3000);
 
   console.log('[wb-bg] 背景注入脚本已启动');
 })();
