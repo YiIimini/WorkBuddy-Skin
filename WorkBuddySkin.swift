@@ -69,7 +69,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // ─── 窗口 ──────────────────────────────────────────────
     func createWindow() {
-        let W: CGFloat = 720, H: CGFloat = 860, p: CGFloat = 24, gap: CGFloat = 10
+        let W: CGFloat = 780, H: CGFloat = 880, p: CGFloat = 28, gap: CGFloat = 12
 
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: W, height: H), styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
         window.title = "WorkBuddy-Skin"; window.titlebarAppearsTransparent = true; window.center()
@@ -84,7 +84,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // 标题
         let titleLabel = makeLabel("WorkBuddy-Skin 背景注入管理器 v2.3", size: 22, bold: true, color: .textTitle)
         titleLabel.alignment = .center; titleLabel.frame = NSRect(x: p, y: y - 30, width: W - p*2, height: 28)
-        bg.addSubview(titleLabel); y -= 40
+        bg.addSubview(titleLabel); y -= 44
 
         // ━━ 背景设置 ━━
         y = addSection("背景设置", x: p, y: y, w: W - p*2, view: bg)
@@ -217,7 +217,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         label.frame = NSRect(x: x, y: y - 18, width: w, height: 16); view.addSubview(label)
         let line = NSView(frame: NSRect(x: x, y: y - 22, width: w, height: 1))
         line.wantsLayer = true; line.layer?.backgroundColor = NSColor.accentPink.withAlphaComponent(0.2).cgColor; view.addSubview(line)
-        return y - 30
+        return y - 36
     }
     func makePopupCompact(items: [String], frame: NSRect) -> NSPopUpButton {
         let popup = NSPopUpButton(frame: frame); popup.addItems(withTitles: items); popup.font = NSFont.systemFont(ofSize: 11); return popup
