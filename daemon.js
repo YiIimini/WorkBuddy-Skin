@@ -158,15 +158,24 @@ function buildInjectScript() {
     '  --wb-text: #edf0f1; --wb-text-rgb: 237,240,241;',
     '  --wb-muted: #a3aaae; --wb-muted-rgb: 163,170,174;',
     '  --wb-line: rgba(255,107,166,0.12);',
+    '  --wb-glass: rgba(20,12,30,0.55);',
+    '  --wb-glass-light: rgba(30,20,44,0.40);',
+    '  --wb-glass-strong: rgba(16,10,26,0.72);',
     '}'
   ].join('\\n');
 
   var cssNeutral = [
     cssVars,
-    // 未启用时：仅轻微侧边栏优化
+    // 未启用时：轻微侧边栏玻璃效果
     '[data-view-id=sidebar] {',
-    '  border-radius: 0 12px 12px 0;',
-    '  box-shadow: 10px 0 28px rgba(0,0,0,0.18);',
+    '  border-right: 1px solid rgba(255,255,255,0.04);',
+    '  box-shadow: 8px 0 24px rgba(0,0,0,0.2);',
+    '}',
+    '[data-view-id=sidebar] button {',
+    '  border-radius: 10px; transition: all 0.2s;',
+    '}',
+    '[data-view-id=sidebar] button:hover {',
+    '  background: rgba(255,255,255,0.04);',
     '}'
   ].join('\\n');
 
@@ -204,55 +213,99 @@ function buildInjectScript() {
     'body, div, span, p, a, li { color: var(--wb-text) !important; text-shadow: 0 1px 2px rgba(var(--wb-bg-rgb),0.72); }',
     'svg, [class*="icon"] { text-shadow: none !important; }',
 
-    // === 侧边栏：渐变+边框+阴影 玻璃效果 ===
+    // === 侧边栏：流体玻璃效果 ===
     '[data-view-id=sidebar] {',
-    '  background: linear-gradient(180deg, rgba(var(--wb-panel-rgb),0.92), rgba(var(--wb-bg-rgb),0.86)) !important;',
-    '  border: 1px solid var(--wb-line); border-left: 0;',
-    '  border-radius: 0 14px 14px 0;',
-    '  box-shadow: 10px 0 32px rgba(var(--wb-bg-rgb),0.24);',
-    '  backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);',
+    '  background: linear-gradient(180deg, rgba(var(--wb-panel-rgb),0.72) 0%, rgba(var(--wb-bg-rgb),0.58) 50%, rgba(var(--wb-panel-rgb),0.68) 100%) !important;',
+    '  border: none !important;',
+    '  border-right: 1px solid rgba(255,255,255,0.06) !important;',
+    '  box-shadow: inset 1px 0 0 rgba(255,255,255,0.04), 8px 0 32px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(255,107,166,0.08) !important;',
+    '  backdrop-filter: blur(28px) saturate(1.4) brightness(1.05);',
+    '  -webkit-backdrop-filter: blur(28px) saturate(1.4) brightness(1.05);',
     '}',
+    // 侧边栏按钮：玻璃悬浮效果
     '[data-view-id=sidebar] button, [data-view-id=sidebar] a {',
-    '  color: var(--wb-text) !important; transition: background 0.18s, color 0.18s;',
+    '  background: transparent !important;',
+    '  color: var(--wb-text) !important;',
+    '  border-radius: 10px !important;',
+    '  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;',
+    '}',
+    '[data-view-id=sidebar] button:hover, [data-view-id=sidebar] a:hover {',
+    '  background: rgba(255,255,255,0.06) !important;',
+    '  box-shadow: inset 0 0 0 1px rgba(255,107,166,0.15);',
     '}',
     '[data-view-id=sidebar] [aria-current="page"] {',
-    '  background: rgba(var(--wb-accent-rgb),0.12) !important;',
-    '  border: 1px solid rgba(var(--wb-accent-rgb),0.22);',
+    '  background: linear-gradient(135deg, rgba(var(--wb-accent-rgb),0.15), rgba(var(--wb-accent-rgb),0.06)) !important;',
+    '  border: 1px solid rgba(var(--wb-accent-rgb),0.25) !important;',
+    '  box-shadow: 0 0 16px rgba(var(--wb-accent-rgb),0.08) !important;',
     '}',
 
-    // === 按钮美化：半透明圆角+过渡动画 ===
+    // === 按钮：流体玻璃悬浮效果 ===
     'button:not([class*="sidebar"]):not([class*="menu"]) {',
-    '  border-radius: 10px !important;',
-    '  transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s !important;',
+    '  background: var(--wb-glass-light) !important;',
+    '  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);',
+    '  border: 1px solid rgba(255,255,255,0.08) !important;',
+    '  border-radius: 12px !important;',
+    '  color: var(--wb-text) !important;',
+    '  box-shadow: 0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.04);',
+    '  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;',
     '}',
-    'button:hover:not([class*="sidebar"]) {',
-    '  transform: translateY(-1px);',
+    'button:hover:not([class*="sidebar"]):not([class*="menu"]) {',
+    '  background: rgba(255,255,255,0.08) !important;',
+    '  border-color: rgba(var(--wb-accent-rgb),0.3) !important;',
+    '  box-shadow: 0 4px 16px rgba(var(--wb-accent-rgb),0.15), 0 0 0 1px rgba(var(--wb-accent-rgb),0.12);',
+    '  transform: translateY(-2px);',
+    '}',
+    'button:active:not([class*="sidebar"]):not([class*="menu"]) {',
+    '  transform: translateY(0) scale(0.98);',
+    '  box-shadow: 0 1px 3px rgba(0,0,0,0.2);',
     '}',
 
-    // === 详情面板 ===
+    // === 详情面板：玻璃流体 ===
     '[data-view-id=detail-panel] {',
-    '  background: rgba(var(--wb-panel-rgb),0.82) !important;',
-    '  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);',
-    '  border-left: 1px solid var(--wb-line);',
+    '  background: linear-gradient(180deg, rgba(var(--wb-panel-rgb),0.72), rgba(var(--wb-bg-rgb),0.58)) !important;',
+    '  backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);',
+    '  border-left: 1px solid rgba(255,255,255,0.06) !important;',
+    '  box-shadow: -8px 0 32px rgba(0,0,0,0.3), inset 1px 0 0 rgba(255,255,255,0.03);',
     '}',
 
-    // === 聊天输入区 ===
-    '.atm-modal-chat-input, .atm-modal-chat-input div {',
-    '  background: rgba(var(--wb-panel-rgb),0.72) !important;',
-    '  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);',
-    '  border-radius: 14px; border: 1px solid var(--wb-line);',
+    // === 聊天输入区：悬浮玻璃 ===
+    '.atm-modal-chat-input {',
+    '  background: linear-gradient(180deg, rgba(var(--wb-panel-rgb),0.65), rgba(var(--wb-bg-rgb),0.55)) !important;',
+    '  backdrop-filter: blur(20px) saturate(1.3); -webkit-backdrop-filter: blur(20px) saturate(1.3);',
+    '  border-radius: 16px !important;',
+    '  border: 1px solid rgba(255,255,255,0.08) !important;',
+    '  box-shadow: 0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04);',
     '}',
+    '.atm-modal-chat-input div { background: transparent !important; }',
 
-    // === 菜单/下拉 ===
+    // === 菜单/下拉：深色玻璃 ===
     '[role=listbox], [role=menu], .monaco-menu, [role=dialog] {',
-    '  background: rgba(var(--wb-panel-rgb),0.88) !important;',
-    '  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);',
-    '  border-radius: 12px; border: 1px solid var(--wb-line);',
+    '  background: linear-gradient(180deg, rgba(var(--wb-panel-rgb),0.82), rgba(var(--wb-bg-rgb),0.72)) !important;',
+    '  backdrop-filter: blur(20px) saturate(1.3); -webkit-backdrop-filter: blur(20px) saturate(1.3);',
+    '  border-radius: 14px !important;',
+    '  border: 1px solid rgba(255,255,255,0.08) !important;',
+    '  box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,107,166,0.06);',
     '}',
 
-    // === 表单/代码恢复 ===
-    'input, textarea, select { background: rgba(var(--wb-panel-rgb),0.8) !important; color: var(--wb-text) !important; border: 1px solid var(--wb-line) !important; border-radius: 8px; }',
-    'pre, code, [class*="monaco"], [class*="editor"] { background: rgba(var(--wb-bg-rgb),0.6) !important; }',
+    // === 表单：玻璃输入框 ===
+    'input, textarea, select {',
+    '  background: rgba(255,255,255,0.05) !important;',
+    '  color: var(--wb-text) !important;',
+    '  border: 1px solid rgba(255,255,255,0.1) !important;',
+    '  border-radius: 10px !important;',
+    '  box-shadow: inset 0 1px 3px rgba(0,0,0,0.15);',
+    '  transition: border-color 0.2s, box-shadow 0.2s;',
+    '}',
+    'input:focus, textarea:focus, select:focus {',
+    '  border-color: rgba(var(--wb-accent-rgb),0.4) !important;',
+    '  box-shadow: 0 0 0 3px rgba(var(--wb-accent-rgb),0.1), inset 0 1px 3px rgba(0,0,0,0.15);',
+    '  outline: none !important;',
+    '}',
+    'pre, code, [class*="monaco"], [class*="editor"] {',
+    '  background: rgba(var(--wb-bg-rgb),0.55) !important;',
+    '  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);',
+    '  border-radius: 10px;',
+    '}',
 
     // === 模态遮罩 ===
     '[class*="modal-overlay"], [class*="ModalOverlay"] {',
