@@ -2,16 +2,15 @@ import Cocoa
 import UniformTypeIdentifiers
 import AVFoundation
 
-// ─── 颜色（高对比度，确保可读）──────────────────────────────
+// ─── 颜色 ──────────────────────────────────────────────────
 extension NSColor {
     static let bgDark = NSColor(srgbRed: 0.05, green: 0.03, blue: 0.08, alpha: 1.0)
     static let bgCard = NSColor(srgbRed: 0.13, green: 0.09, blue: 0.19, alpha: 1.0)
     static let accentPink = NSColor(srgbRed: 1.0, green: 0.42, blue: 0.65, alpha: 1.0)
-    // 使用系统自适应颜色，确保深色模式下可读
-    static let textTitle = NSColor.labelColor  // 纯白（深色模式）
-    static let textBody = NSColor.controlTextColor  // 接近白色
-    static let textLabel = NSColor.secondaryLabelColor  // 浅灰
-    static let textHint = NSColor.tertiaryLabelColor  // 中灰
+    static let textTitle = NSColor.labelColor
+    static let textBody = NSColor.controlTextColor
+    static let textLabel = NSColor.secondaryLabelColor
+    static let textHint = NSColor.tertiaryLabelColor
     static let statusOk = NSColor(srgbRed: 0.30, green: 0.90, blue: 0.55, alpha: 1.0)
     static let statusErr = NSColor(srgbRed: 1.0, green: 0.50, blue: 0.50, alpha: 1.0)
 }
@@ -57,6 +56,7 @@ class StatusCard: NSView {
 // ─── 应用委托 ──────────────────────────────────────────────
 class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
+    var bg: NSView!
 
     var wbCard: StatusCard!
     var cdpCard: StatusCard!
@@ -64,6 +64,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var bgCard: StatusCard!
 
     var startButton: NSButton!
+    var injectButton: NSButton!
     var selectFileButton: NSButton!
     var clearButton: NSButton!
     var enabledCheckbox: NSButton!
@@ -76,12 +77,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var positionPopup: NSPopUpButton!
     var fileLabel: NSTextField!
 
-    // 预览
     var previewView: NSView!
     var previewImageView: NSImageView!
     var previewHeight: CGFloat = 50
     var previewBaseY: CGFloat = 0
-    var belowPreviewY: CGFloat = 0
     var belowPreviewViews: [NSView] = []
 
     let daemonURL = "http://localhost:17890"
@@ -90,58 +89,68 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         createWindow()
         startDaemonIfNeeded()
-
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             self.refreshStatus()
             self.loadConfig()
         }
-        Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
-            self.refreshStatus()
-        }
+        Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in self.refreshStatus() }
     }
 
     // ─── 窗口 ──────────────────────────────────────────────
     func createWindow() {
         let W: CGFloat = 720
-        let H: CGFloat = 880
+        let H: CGFloat = 920
 
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: W, height: H),
             styleMask: [.titled, .closable, .miniaturizable],
-            backing: .buffered,
-            defer: false
+            backing: .buffered, defer: false
         )
         window.title = "WorkBuddy-Skin"
         window.titlebarAppearsTransparent = true
         window.center()
         window.minSize = NSSize(width: W, height: H)
         window.maxSize = NSSize(width: W, height: H)
-        // 强制深色外观
         window.appearance = NSAppearance(named: .darkAqua)
 
-        let bg = NSView(frame: NSRect(x: 0, y: 0, width: W, height: H))
+        bg = NSView(frame: NSRect(x: 0, y: 0, width: W, height: H))
         bg.wantsLayer = true
         bg.layer?.backgroundColor = NSColor.bgDark.cgColor
         window.contentView = bg
 
         let p: CGFloat = 24
+        let gap: CGFloat = 10
         var y: CGFloat = H - p - 10
 
-        // 标题
-        let titleLabel = makeLabel("WorkBuddy-Skin", size: 28, bold: true, color: .textTitle)
+        // ── 标题 ──
+        let titleLabel = makeLabel("WorkBuddy-Skin 背景注入管理器 v2.2", size: 22, bold: true, color: .textTitle)
         titleLabel.alignment = .center
-        titleLabel.frame = NSRect(x: p, y: y - 36, width: W - p*2, height: 34)
+        titleLabel.frame = NSRect(x: p, y: y - 30, width: W - p*2, height: 28)
         bg.addSubview(titleLabel)
         y -= 44
 
-        let subLabel = makeLabel("背景注入管理器 v2.2", size: 13, bold: false, color: .textHint)
-        subLabel.alignment = .center
-        subLabel.frame = NSRect(x: p, y: y - 16, width: W - p*2, height: 14)
-        bg.addSubview(subLabel)
-        y -= 28
+        // ━━ 背景设置 ━━
+        y = addSection("背景设置", x: p, y: y, w: W - p*2, view: bg)
 
-        // ── 预览区（动态高度）──
-        previewHeight = 50 // 初始小高度
+        // 文件目录
+        fileLabel = makeLabel("📄 未选择文件", size: 13, bold: false, color: .textLabel)
+        fileLabel.lineBreakMode = .byTruncatingTail
+        fileLabel.frame = NSRect(x: p, y: y - 18, width: W - p*2, height: 16)
+        bg.addSubview(fileLabel)
+        y -= 26
+
+        // 选择文件 + 清除背景
+        let btnW = (W - p*2 - gap) / 2
+        let btnH: CGFloat = 34
+
+        selectFileButton = makeButton("📁 选择文件", frame: NSRect(x: p, y: y - btnH, width: btnW, height: btnH), action: #selector(selectFile))
+        clearButton = makeButton("🗑️ 清除背景", frame: NSRect(x: p + btnW + gap, y: y - btnH, width: btnW, height: btnH), action: #selector(clearBackground))
+        bg.addSubview(selectFileButton)
+        bg.addSubview(clearButton)
+        y -= btnH + 14
+
+        // 预览缩略图
+        previewHeight = 50
         previewBaseY = y
         previewView = NSView(frame: NSRect(x: p, y: y - previewHeight, width: W - p*2, height: previewHeight))
         previewView.wantsLayer = true
@@ -162,16 +171,70 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         noPreviewLabel.tag = 999
         noPreviewLabel.frame = NSRect(x: 0, y: previewHeight/2 - 10, width: previewView.bounds.width, height: 20)
         previewView.addSubview(noPreviewLabel)
+        y -= previewHeight + 14
 
-        y -= previewHeight + 16
+        // 启动背景按钮 + 文件类型说明
+        startButton = makeButton("🎬 启动背景（支持图片 JPG/PNG/GIF、视频 MP4/MOV/WebM）", frame: NSRect(x: p, y: y - btnH, width: W - p*2, height: btnH), action: #selector(toggleBackground))
+        bg.addSubview(startButton)
+        y -= btnH + 14
 
-        // 存储预览下方的基线，用于动态调整
-        belowPreviewY = y
+        // 启用开关
+        enabledCheckbox = NSButton(checkboxWithTitle: "启用背景", target: self, action: #selector(updateConfig))
+        enabledCheckbox.frame = NSRect(x: p, y: y - 22, width: 200, height: 22)
+        bg.addSubview(enabledCheckbox)
+        y -= 30
 
-        // ── 状态卡片 ──
-        let cardW: CGFloat = (W - p*2 - 30) / 4
-        let cardH: CGFloat = 60
-        let gap: CGFloat = 10
+        // 模糊 + 填充方式 + 位置（一行三个下拉）
+        let popupW: CGFloat = (W - p*2 - gap*2) / 3
+        blurPopup = makePopupCompact(items: ["模糊: 无", "模糊: 轻微", "模糊: 中等", "模糊: 强烈"], frame: NSRect(x: p, y: y - 26, width: popupW, height: 26))
+        bg.addSubview(blurPopup)
+        blurPopup.target = self
+        blurPopup.action = #selector(updateConfig)
+
+        scalePopup = makePopupCompact(items: ["填充: 覆盖", "填充: 包含", "填充: 填充"], frame: NSRect(x: p + popupW + gap, y: y - 26, width: popupW, height: 26))
+        bg.addSubview(scalePopup)
+        scalePopup.target = self
+        scalePopup.action = #selector(updateConfig)
+
+        positionPopup = makePopupCompact(items: ["位置: 居中", "位置: 顶部", "位置: 底部", "位置: 左侧", "位置: 右侧"], frame: NSRect(x: p + (popupW+gap)*2, y: y - 26, width: popupW, height: 26))
+        bg.addSubview(positionPopup)
+        positionPopup.target = self
+        positionPopup.action = #selector(updateConfig)
+        y -= 36
+
+        // 透明度 + 暗色遮罩度（一行两个滑块）
+        let sliderW: CGFloat = (W - p*2 - gap) / 2
+        opacityValueLabel = makeLabel("100%", size: 12, bold: false, color: .textLabel)
+        opacityValueLabel.alignment = .right
+        opacitySlider = makeSliderCompact("不透明度", valueLabel: opacityValueLabel, frame: NSRect(x: p, y: y - 36, width: sliderW, height: 36), min: 10, max: 100, initVal: 100)
+        opacitySlider.target = self
+        opacitySlider.action = #selector(sliderChanged)
+        bg.addSubview(opacityValueLabel)
+        bg.addSubview(opacitySlider)
+
+        overlayValueLabel = makeLabel("50%", size: 12, bold: false, color: .textLabel)
+        overlayValueLabel.alignment = .right
+        overlaySlider = makeSliderCompact("暗色遮罩", valueLabel: overlayValueLabel, frame: NSRect(x: p + sliderW + gap, y: y - 36, width: sliderW, height: 36), min: 0, max: 80, initVal: 50)
+        overlaySlider.target = self
+        overlaySlider.action = #selector(sliderChanged)
+        bg.addSubview(overlayValueLabel)
+        bg.addSubview(overlaySlider)
+        y -= 44
+
+        // ━━ 快速操作 ━━
+        y = addSection("快速操作", x: p, y: y, w: W - p*2, view: bg)
+
+        injectButton = makeButton("🔌 CDP 注入启动", frame: NSRect(x: p, y: y - btnH, width: btnW, height: btnH), action: #selector(startWorkBuddy))
+        let refreshButton = makeButton("🔄 刷新状态", frame: NSRect(x: p + btnW + gap, y: y - btnH, width: btnW, height: btnH), action: #selector(refreshStatus))
+        bg.addSubview(injectButton)
+        bg.addSubview(refreshButton)
+        y -= btnH + 24
+
+        // ━━ 状态监测 ━━
+        y = addSection("状态监测", x: p, y: y, w: W - p*2, view: bg)
+
+        let cardW: CGFloat = (W - p*2 - gap*3) / 4
+        let cardH: CGFloat = 56
 
         wbCard = StatusCard(title: "WorkBuddy", frame: NSRect(x: p, y: y - cardH, width: cardW, height: cardH))
         cdpCard = StatusCard(title: "CDP 端口", frame: NSRect(x: p + (cardW+gap), y: y - cardH, width: cardW, height: cardH))
@@ -181,70 +244,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         bg.addSubview(cdpCard)
         bg.addSubview(daemonCard)
         bg.addSubview(bgCard)
-        y -= cardH + 20
 
-        // ── 快速操作 ──
-        y = addSection("快速操作", x: p, y: y, w: W - p*2, view: bg)
-        let btnW = (W - p*2 - gap) / 2
-        let btnH: CGFloat = 36
-
-        startButton = makeButton("🚀 启动 WorkBuddy", frame: NSRect(x: p, y: y - btnH, width: btnW, height: btnH), action: #selector(startWorkBuddy))
-        let refreshButton = makeButton("🔄 刷新状态", frame: NSRect(x: p + btnW + gap, y: y - btnH, width: btnW, height: btnH), action: #selector(refreshStatus))
-        bg.addSubview(startButton)
-        bg.addSubview(refreshButton)
-        y -= btnH + 20
-
-        // ── 背景设置 ──
-        y = addSection("背景设置", x: p, y: y, w: W - p*2, view: bg)
-
-        fileLabel = makeLabel("📄 未选择文件", size: 13, bold: false, color: .textLabel)
-        fileLabel.lineBreakMode = .byTruncatingTail
-        fileLabel.frame = NSRect(x: p, y: y - 18, width: W - p*2, height: 16)
-        bg.addSubview(fileLabel)
-        y -= 26
-
-        selectFileButton = makeButton("📁 选择文件", frame: NSRect(x: p, y: y - btnH, width: btnW, height: btnH), action: #selector(selectFile))
-        clearButton = makeButton("🗑️ 清除背景", frame: NSRect(x: p + btnW + gap, y: y - btnH, width: btnW, height: btnH), action: #selector(clearBackground))
-        bg.addSubview(selectFileButton)
-        bg.addSubview(clearButton)
-        y -= btnH + 14
-
-        enabledCheckbox = NSButton(checkboxWithTitle: "启用背景", target: self, action: #selector(updateConfig))
-        enabledCheckbox.frame = NSRect(x: p, y: y - 22, width: 200, height: 22)
-        styleCheckbox(enabledCheckbox)
-        bg.addSubview(enabledCheckbox)
-        y -= 32
-
-        // 滑块行
-        opacityValueLabel = makeLabel("100%", size: 12, bold: false, color: .textLabel)
-        opacityValueLabel.alignment = .right
-        opacitySlider = makeSliderRow("不透明度", valueLabel: opacityValueLabel, x: p, y: y, w: W - p*2, view: bg, min: 10, max: 100, initVal: 100)
-        opacitySlider.target = self
-        opacitySlider.action = #selector(sliderChanged)
-        y -= 34
-
-        overlayValueLabel = makeLabel("50%", size: 12, bold: false, color: .textLabel)
-        overlayValueLabel.alignment = .right
-        overlaySlider = makeSliderRow("暗色遮罩", valueLabel: overlayValueLabel, x: p, y: y, w: W - p*2, view: bg, min: 0, max: 80, initVal: 50)
-        overlaySlider.target = self
-        overlaySlider.action = #selector(sliderChanged)
-        y -= 34
-
-        blurPopup = makePopupRow("模糊", items: ["无", "轻微 (5px)", "中等 (10px)", "强烈 (20px)"], x: p, y: y, w: W - p*2, view: bg)
-        blurPopup.target = self
-        blurPopup.action = #selector(updateConfig)
-        y -= 32
-
-        scalePopup = makePopupRow("填充方式", items: ["覆盖", "包含", "填充"], x: p, y: y, w: W - p*2, view: bg)
-        scalePopup.target = self
-        scalePopup.action = #selector(updateConfig)
-        y -= 32
-
-        positionPopup = makePopupRow("位置", items: ["居中", "顶部", "底部", "左侧", "右侧"], x: p, y: y, w: W - p*2, view: bg)
-        positionPopup.target = self
-        positionPopup.action = #selector(updateConfig)
-
-        // 收集预览下方的所有视图（用于动态调整高度时移动）
+        // 收集预览下方的所有视图
         let previewBottom = previewBaseY - previewHeight
         for sv in bg.subviews {
             if sv !== previewView && sv.frame.origin.y < previewBottom + 5 {
@@ -269,47 +270,44 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         btn.bezelStyle = .rounded
         btn.target = self
         btn.action = action
-        btn.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        btn.font = NSFont.systemFont(ofSize: 12, weight: .medium)
         return btn
     }
 
-    func styleCheckbox(_ cb: NSButton) {
-        // 系统默认
-    }
-
     func addSection(_ title: String, x: CGFloat, y: CGFloat, w: CGFloat, view: NSView) -> CGFloat {
-        let label = makeLabel(title, size: 15, bold: true, color: .accentPink)
-        label.frame = NSRect(x: x, y: y - 20, width: w, height: 18)
+        let label = makeLabel(title, size: 14, bold: true, color: .accentPink)
+        label.frame = NSRect(x: x, y: y - 18, width: w, height: 16)
         view.addSubview(label)
-        return y - 28
+        // 分隔线
+        let line = NSView(frame: NSRect(x: x, y: y - 22, width: w, height: 1))
+        line.wantsLayer = true
+        line.layer?.backgroundColor = NSColor.accentPink.withAlphaComponent(0.2).cgColor
+        view.addSubview(line)
+        return y - 30
     }
 
-    func makeSliderRow(_ title: String, valueLabel: NSTextField, x: CGFloat, y: CGFloat, w: CGFloat, view: NSView, min: Double, max: Double, initVal: Double) -> NSSlider {
-        let titleLabel = makeLabel(title, size: 13, bold: false, color: .textLabel)
-        titleLabel.frame = NSRect(x: x, y: y - 18, width: 90, height: 16)
-        view.addSubview(titleLabel)
+    func makePopupCompact(items: [String], frame: NSRect) -> NSPopUpButton {
+        let popup = NSPopUpButton(frame: frame)
+        popup.addItems(withTitles: items)
+        popup.font = NSFont.systemFont(ofSize: 11)
+        return popup
+    }
 
-        valueLabel.frame = NSRect(x: x + w - 50, y: y - 18, width: 50, height: 16)
-        view.addSubview(valueLabel)
+    func makeSliderCompact(_ title: String, valueLabel: NSTextField, frame: NSRect, min: Double, max: Double, initVal: Double) -> NSSlider {
+        let titleLabel = makeLabel(title, size: 12, bold: false, color: .textLabel)
+        titleLabel.frame = NSRect(x: 0, y: frame.height - 16, width: 70, height: 14)
+        bg.addSubview(titleLabel)
+        titleLabel.frame.origin.x = frame.origin.x
+        titleLabel.frame.origin.y = frame.origin.y + frame.height - 16
 
-        let slider = NSSlider(frame: NSRect(x: x + 100, y: y - 20, width: w - 160, height: 20))
+        valueLabel.frame = NSRect(x: frame.origin.x + frame.width - 40, y: frame.origin.y + frame.height - 16, width: 40, height: 14)
+        valueLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+
+        let slider = NSSlider(frame: NSRect(x: frame.origin.x, y: frame.origin.y, width: frame.width, height: 20))
         slider.minValue = min
         slider.maxValue = max
         slider.doubleValue = initVal
-        view.addSubview(slider)
         return slider
-    }
-
-    func makePopupRow(_ title: String, items: [String], x: CGFloat, y: CGFloat, w: CGFloat, view: NSView) -> NSPopUpButton {
-        let titleLabel = makeLabel(title, size: 13, bold: false, color: .textLabel)
-        titleLabel.frame = NSRect(x: x, y: y - 18, width: 90, height: 16)
-        view.addSubview(titleLabel)
-
-        let popup = NSPopUpButton(frame: NSRect(x: x + 100, y: y - 22, width: 180, height: 24))
-        popup.addItems(withTitles: items)
-        popup.font = NSFont.systemFont(ofSize: 12)
-        view.addSubview(popup)
-        return popup
     }
 
     // ─── 预览 ─────────────────────────────────────────────
@@ -328,7 +326,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 let generator = AVAssetImageGenerator(asset: asset)
                 generator.appliesPreferredTrackTransform = true
                 generator.maximumSize = CGSize(width: 672, height: 400)
-
                 do {
                     let cgImage = try generator.copyCGImage(at: CMTime(seconds: 0.5, preferredTimescale: 600), actualTime: nil)
                     let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
@@ -339,9 +336,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         self.resizePreview(imageSize: image.size)
                     }
                 } catch {
-                    DispatchQueue.main.async {
-                        self.showNoPreview("🎬 无法生成视频预览")
-                    }
+                    DispatchQueue.main.async { self.showNoPreview("🎬 无法生成视频预览") }
                 }
             }
         } else {
@@ -358,29 +353,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func resizePreview(imageSize: NSSize) {
         let maxWidth: CGFloat = 672
-        let maxHeight: CGFloat = 250
-
+        let maxHeight: CGFloat = 200
         var newHeight: CGFloat = 50
         if imageSize.width > 0 {
             let ratio = imageSize.height / imageSize.width
             newHeight = min(maxWidth * ratio, maxHeight)
             if newHeight < 50 { newHeight = 50 }
         }
-
         let delta = newHeight - previewHeight
         previewHeight = newHeight
-
-        // 更新预览框
         previewView.frame = NSRect(x: previewView.frame.origin.x, y: previewBaseY - previewHeight, width: maxWidth, height: previewHeight)
         previewImageView.frame = NSRect(x: 0, y: 0, width: maxWidth, height: previewHeight)
         if let label = previewView.viewWithTag(999) {
             label.frame = NSRect(x: 0, y: previewHeight/2 - 10, width: maxWidth, height: 20)
         }
-
-        // 调整下方所有元素
-        for view in belowPreviewViews {
-            view.frame.origin.y -= delta
-        }
+        for view in belowPreviewViews { view.frame.origin.y -= delta }
     }
 
     func showNoPreview(_ text: String) {
@@ -399,25 +386,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             oldLabel.isHidden = false
             (oldLabel as? NSTextField)?.stringValue = "选择文件后显示预览"
         }
-        // 恢复默认高度
-        if previewHeight != 50 {
-            resizePreview(imageSize: NSSize(width: 100, height: 10))
-        }
+        if previewHeight != 50 { resizePreview(imageSize: NSSize(width: 100, height: 10)) }
     }
 
-    // ─── 启动 WorkBuddy ────────────────────────────────────
-    @objc func startWorkBuddy() {
-        startButton.isEnabled = false
-        startButton.title = "⏳ 启动中..."
+    // ─── 启动/停止背景 ────────────────────────────────────
+    @objc func toggleBackground() {
+        if enabledCheckbox.state == .on {
+            enabledCheckbox.state = .off
+        } else {
+            enabledCheckbox.state = .on
+        }
+        updateConfig()
+    }
 
+    // ─── CDP 注入启动 ──────────────────────────────────────
+    @objc func startWorkBuddy() {
+        injectButton.isEnabled = false
+        injectButton.title = "⏳ 启动中..."
         DispatchQueue.global().async {
             let quit = Process()
             quit.launchPath = "/usr/bin/osascript"
             quit.arguments = ["-e", "tell application \"WorkBuddy\" to quit"]
             quit.standardOutput = FileHandle.nullDevice
             quit.standardError = FileHandle.nullDevice
-            quit.launch()
-            quit.waitUntilExit()
+            quit.launch(); quit.waitUntilExit()
             Thread.sleep(forTimeInterval: 3)
 
             let task = Process()
@@ -429,29 +421,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             var waited = 0
             while waited < 30 {
-                Thread.sleep(forTimeInterval: 1)
-                waited += 1
+                Thread.sleep(forTimeInterval: 1); waited += 1
                 if self.checkPort(9222) { break }
             }
-
             DispatchQueue.main.async {
-                self.startButton.isEnabled = true
-                self.startButton.title = "🚀 启动 WorkBuddy"
+                self.injectButton.isEnabled = true
+                self.injectButton.title = "🔌 CDP 注入启动"
                 self.refreshStatus()
             }
         }
     }
 
-    // ─── 刷新状态 ──────────────────────────────────────────
     @objc func refreshStatus() {
         DispatchQueue.global().async {
             let daemonOk = self.checkPort(17890)
             let cdpOk = self.checkPort(9222)
-
             self.daemonCard.update(daemonOk ? "运行中" : "未运行", daemonOk)
             self.cdpCard.update(cdpOk ? "已开放" : "未开放", cdpOk)
             self.wbCard.update(cdpOk ? "运行中" : "未运行", cdpOk)
-
             if let enabled = self.currentConfig["enabled"] as? Bool,
                let source = self.currentConfig["source"] as? String {
                 let bgActive = enabled && !source.isEmpty
@@ -460,7 +447,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // ─── 选择文件 ──────────────────────────────────────────
     @objc func selectFile() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
@@ -468,7 +454,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panel.canChooseFiles = true
         panel.message = "选择背景图片或视频"
         panel.allowedContentTypes = [UTType.movie, UTType.video, UTType.image]
-
         panel.begin { [weak self] response in
             guard let self = self else { return }
             if response == .OK, let url = panel.url {
@@ -504,16 +489,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         currentConfig["enabled"] = enabledCheckbox.state == .on
         currentConfig["opacity"] = opacitySlider.doubleValue / 100
         currentConfig["overlay"] = overlaySlider.doubleValue / 100
-
         let blurValues = ["0px", "5px", "10px", "20px"]
         currentConfig["blur"] = blurValues[blurPopup.indexOfSelectedItem]
-
         let scaleValues = ["cover", "contain", "fill"]
         currentConfig["scale"] = scaleValues[scalePopup.indexOfSelectedItem]
-
         let positionValues = ["center", "top", "bottom", "left", "right"]
         currentConfig["position"] = positionValues[positionPopup.indexOfSelectedItem]
-
+        // 更新启动按钮文字
+        startButton.title = enabledCheckbox.state == .on ? "⏹️ 停止背景（支持图片 JPG/PNG/GIF、视频 MP4/MOV/WebM）" : "🎬 启动背景（支持图片 JPG/PNG/GIF、视频 MP4/MOV/WebM）"
         saveConfig()
     }
 
@@ -529,25 +512,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.overlaySlider.doubleValue = (json["overlay"] as? Double ?? 0.5) * 100
                 self.opacityValueLabel.stringValue = "\(Int(self.opacitySlider.doubleValue))%"
                 self.overlayValueLabel.stringValue = "\(Int(self.overlaySlider.doubleValue))%"
-
                 if let source = json["source"] as? String, !source.isEmpty {
                     let isVideo = (json["type"] as? String) == "video"
                     self.fileLabel.stringValue = (isVideo ? "🎬 " : "🖼️ ") + (source as NSString).lastPathComponent
                     self.showPreview(source)
                 }
-
                 let blurValues = ["0px", "5px", "10px", "20px"]
-                if let blur = json["blur"] as? String, let idx = blurValues.firstIndex(of: blur) {
-                    self.blurPopup.selectItem(at: idx)
-                }
+                if let blur = json["blur"] as? String, let idx = blurValues.firstIndex(of: blur) { self.blurPopup.selectItem(at: idx) }
                 let scaleValues = ["cover", "contain", "fill"]
-                if let scale = json["scale"] as? String, let idx = scaleValues.firstIndex(of: scale) {
-                    self.scalePopup.selectItem(at: idx)
-                }
+                if let scale = json["scale"] as? String, let idx = scaleValues.firstIndex(of: scale) { self.scalePopup.selectItem(at: idx) }
                 let positionValues = ["center", "top", "bottom", "left", "right"]
-                if let pos = json["position"] as? String, let idx = positionValues.firstIndex(of: pos) {
-                    self.positionPopup.selectItem(at: idx)
-                }
+                if let pos = json["position"] as? String, let idx = positionValues.firstIndex(of: pos) { self.positionPopup.selectItem(at: idx) }
+                self.updateConfig()
                 self.refreshStatus()
             }
         }.resume()
@@ -574,9 +550,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 Thread.sleep(forTimeInterval: 3)
                 DispatchQueue.main.async { self.loadConfig() }
             }
-        } else {
-            loadConfig()
-        }
+        } else { loadConfig() }
     }
 
     func checkPort(_ port: Int) -> Bool {
@@ -585,15 +559,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         task.arguments = ["-z", "-w", "1", "localhost", String(port)]
         task.standardOutput = FileHandle.nullDevice
         task.standardError = FileHandle.nullDevice
-        task.launch()
-        task.waitUntilExit()
+        task.launch(); task.waitUntilExit()
         return task.terminationStatus == 0
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 }
 
-// ─── 入口 ──────────────────────────────────────────────────
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
