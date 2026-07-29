@@ -48,6 +48,8 @@ class StatusCard: NSView {
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
+    static weak var shared: AppDelegate?
+
     var window: NSWindow!; var statusItem: NSStatusItem!
     var wbCard: StatusCard!, cdpCard: StatusCard!, daemonCard: StatusCard!, bgCard: StatusCard!
     var startButton: NSButton!, injectButton: NSButton!
@@ -64,14 +66,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var currentConfig: [String: Any] = [:]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppDelegate.shared = self
         setupMenuBar(); createWindow(); startDaemonIfNeeded()
+        // 用 NotificationCenter 处理 Dock 点击，不依赖 weak delegate
+        NotificationCenter.default.addObserver(self, selector: #selector(handleReopen), name: NSApplication.didBecomeActiveNotification, object: nil)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { self.refreshStatus(); self.loadConfig(); self.updateMenuStatus() }
         Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in self.refreshStatus(); self.updateMenuStatus() }
     }
 
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !flag { showWindow() }
-        return true
+    @objc func handleReopen() {
+        guard let w = window, !w.isVisible else { return }
+        w.makeKeyAndOrderFront(nil)
     }
 
     func createWindow() {
@@ -272,10 +277,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             else { btn.title = "✦" }
         }
         let m = NSMenu()
-        let o = m.addItem(withTitle: "打开应用窗口", action: #selector(showWindow), keyEquivalent: "o"); o.target = self
+        let o = m.addItem(withTitle: "打开应用窗口", action: #selector(showWindow), keyEquivalent: "o"); o.target = AppDelegate.shared
         m.addItem(NSMenuItem.separator())
-        let i = m.addItem(withTitle: "CDP 注入启动", action: #selector(menuStartWorkBuddy), keyEquivalent: ""); i.target = self
-        let t = m.addItem(withTitle: "启用背景", action: #selector(menuToggleBackground), keyEquivalent: ""); t.target = self; t.tag = 100
+        let i = m.addItem(withTitle: "CDP 注入启动", action: #selector(menuStartWorkBuddy), keyEquivalent: ""); i.target = AppDelegate.shared
+        let t = m.addItem(withTitle: "启用背景", action: #selector(menuToggleBackground), keyEquivalent: ""); t.target = AppDelegate.shared; t.tag = 100
         m.addItem(NSMenuItem.separator())
         let sm = NSMenu()
         sm.addItem(withTitle: "守护进程: —", action: nil, keyEquivalent: "").tag = 201
@@ -283,7 +288,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         sm.addItem(withTitle: "背景状态: —", action: nil, keyEquivalent: "").tag = 203
         let si = m.addItem(withTitle: "状态", action: nil, keyEquivalent: ""); si.submenu = sm
         m.addItem(NSMenuItem.separator())
-        let r = m.addItem(withTitle: "刷新状态", action: #selector(menuRefreshStatus), keyEquivalent: ""); r.target = self
+        let r = m.addItem(withTitle: "刷新状态", action: #selector(menuRefreshStatus), keyEquivalent: ""); r.target = AppDelegate.shared
         m.addItem(NSMenuItem.separator())
         m.addItem(withTitle: "退出 WorkBuddy-Skin", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem.menu = m
@@ -445,7 +450,7 @@ func NSColorFromHex(_ hex: String) -> NSColor? { var s = hex.trimmingCharacters(
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
-// 强引用防止 ARC 释放（NSApp.delegate 是 weak）
-objc_setAssociatedObject(app, UnsafeRawPointer(bitPattern: 1)!, delegate, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+// 额外强引用：防止 Swift 编译器优化释放全局变量
+_ = Unmanaged.passRetained(delegate)
 app.setActivationPolicy(.regular)
 app.run()
