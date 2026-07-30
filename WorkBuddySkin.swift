@@ -176,7 +176,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         autoTextBtn = makeBtn("文字自动配色", "checkmark.square.fill", #selector(autoTextToggled))
         ctrlRow.addArrangedSubview(autoTextBtn)
         main.addArrangedSubview(ctrlRow)
-        stylePrimary(startButton, false)
 
         // 取色板（独立行）
         let wellRow = NSStackView(); wellRow.spacing = 8
@@ -224,7 +223,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             makeBtn("刷新状态", "arrow.clockwise", #selector(refreshStatus))
         ], equalWidth: true)
         main.addArrangedSubview(qRow)
-        stylePrimary(injectButton, false)
 
         // ══ 状态监测 ══
         main.setCustomSpacing(20, after: qRow)
@@ -239,10 +237,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let footer = NSTextField(labelWithString: "YiIimini  |  GitHub")
         footer.font = NSFont.systemFont(ofSize: 11); footer.textColor = .textHint; footer.alignment = .center
         let fa = NSMutableAttributedString(string: "YiIimini  |  GitHub")
-        let ghRange = (fa.string as NSString).range(of: "GitHub")
-        fa.addAttribute(.link, value: "https://github.com/YiIimini/WorkBuddy-Skin", range: ghRange)
+        fa.addAttribute(.link, value: "https://github.com/YiIimini/WorkBuddy-Skin", range: (fa.string as NSString).range(of: "GitHub"))
         fa.addAttribute(.foregroundColor, value: NSColor.textHint, range: NSRange(location: 0, length: fa.length))
-        fa.addAttribute(.foregroundColor, value: NSColor.accentPink, range: ghRange)
         footer.attributedStringValue = fa; footer.allowsEditingTextAttributes = true; footer.isSelectable = true
         main.addArrangedSubview(footer)
     }
@@ -267,19 +263,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         b.bezelStyle = .rounded; b.font = NSFont.systemFont(ofSize: 12, weight: .medium)
         b.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil); b.imagePosition = .imageLeading
         return b
-    }
-    // 主操作按钮美化：主题色描边 + 半透明底色 + 半粗标题（on 时用状态绿表示"运行中"）
-    func stylePrimary(_ b: NSButton, _ on: Bool) {
-        let color: NSColor = on ? .statusOk : .accentPink
-        b.isBordered = false; b.wantsLayer = true
-        b.layer?.cornerRadius = 8; b.layer?.borderWidth = 1
-        b.layer?.borderColor = color.withAlphaComponent(0.45).cgColor
-        b.layer?.backgroundColor = color.withAlphaComponent(0.10).cgColor
-        b.contentTintColor = color
-        b.attributedTitle = NSAttributedString(string: b.title, attributes: [
-            .foregroundColor: color,
-            .font: NSFont.systemFont(ofSize: 12, weight: .semibold)
-        ])
     }
     func popup(_ items: [String]) -> NSPopUpButton {
         let p = NSPopUpButton(); p.addItems(withTitles: items); p.font = NSFont.systemFont(ofSize: 11)
@@ -385,7 +368,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let on = currentConfig["enabled"] as? Bool ?? false
         startButton.title = on ? "停止背景" : "启动背景"
         startButton.image = NSImage(systemSymbolName: on ? "stop.rectangle" : "play.rectangle", accessibilityDescription: nil)
-        stylePrimary(startButton, on)
         updateConfig()
     }
     @objc func autoTextToggled() {
@@ -409,7 +391,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     @objc func startWorkBuddy() {
-        injectButton.isEnabled = false; injectButton.title = "启动中..."; stylePrimary(injectButton, false)
+        injectButton.isEnabled = false; injectButton.title = "启动中..."
         DispatchQueue.global().async {
             let q = Process(); q.launchPath = "/usr/bin/osascript"; q.arguments = ["-e", "tell application \"WorkBuddy\" to quit"]
             q.standardOutput = FileHandle.nullDevice; q.standardError = FileHandle.nullDevice; q.launch(); q.waitUntilExit()
@@ -417,7 +399,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let t = Process(); t.launchPath = "/bin/bash"; t.arguments = ["\(NSHomeDirectory())/WorkBuddy-Skin/launcher.sh"]
             t.standardOutput = FileHandle.nullDevice; t.standardError = FileHandle.nullDevice; t.launch()
             var w = 0; while w < 30 { Thread.sleep(forTimeInterval: 1); w += 1; if self.checkPort(9222) { break } }
-            DispatchQueue.main.async { self.injectButton.isEnabled = true; self.injectButton.title = "CDP 注入启动"; self.stylePrimary(self.injectButton, false); self.refreshStatus() }
+            DispatchQueue.main.async { self.injectButton.isEnabled = true; self.injectButton.title = "CDP 注入启动"; self.refreshStatus() }
         }
     }
     @objc func refreshStatus() {

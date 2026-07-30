@@ -309,6 +309,22 @@ function buildInjectScript() {
     '  box-shadow: 0 1px 3px rgba(0,0,0,0.2);',
     '}',
 
+    // === 文字/链接按钮：主题色 + 悬浮下划线（窗口中的纯文字按钮）===
+    '[class*="text-button"], [class*="TextButton"], [class*="link-button"], [class*="LinkButton"], [role="link"], button[class*="text-only"] {',
+    '  background: transparent !important;',
+    '  border: none !important;',
+    '  box-shadow: none !important;',
+    '  color: var(--wb-accent) !important;',
+    '  font-weight: 500 !important;',
+    '  text-underline-offset: 3px;',
+    '  transition: color 0.2s, text-decoration-color 0.2s !important;',
+    '}',
+    '[class*="text-button"]:hover, [class*="TextButton"]:hover, [class*="link-button"]:hover, [class*="LinkButton"]:hover, [role="link"]:hover, button[class*="text-only"]:hover {',
+    '  text-decoration: underline;',
+    '  text-decoration-color: rgba(var(--wb-accent-rgb),0.7);',
+    '  filter: brightness(1.15);',
+    '}',
+
     // === 详情面板：透明玻璃 ===
     '[data-view-id=detail-panel] {',
     '  background: linear-gradient(180deg, rgba(var(--wb-panel-rgb),0.22), rgba(var(--wb-bg-rgb),0.14)) !important;',
