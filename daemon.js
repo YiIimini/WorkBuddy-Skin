@@ -233,7 +233,8 @@ function buildInjectScript() {
     // === body::before 背景层 ===
     'body::before {',
     '  content: ""; position: fixed; inset: 0; z-index: -2147483648; pointer-events: none;',
-    '  background-size: cover; background-position: center; background-repeat: no-repeat;',
+    '  background-repeat: no-repeat;',
+    '  background-size: var(--wb-bg-size, cover); background-position: var(--wb-bg-pos, center);',
     '  background-image: var(--wb-bg-art, none);',
     '  opacity: var(--wb-bg-opacity, 1);',
     '  filter: var(--wb-bg-blur, none);',
@@ -256,9 +257,9 @@ function buildInjectScript() {
     '    rgba(var(--wb-bg-rgb),1) 100%);',
     '}',
 
-    // === 容器透明化 ===
+    // === 容器透明化（排除背景层/遮罩层，否则 JS inline 设置的遮罩色会被 !important 压掉）===
     'html, body { background: transparent !important; }',
-    'div, section, main, article, nav, aside, ul, ol, li { background: transparent !important; }',
+    'div:not(#wb-bg-layer):not(#wb-bg-overlay), section, main, article, nav, aside, ul, ol, li { background: transparent !important; }',
     'span, p { background-color: transparent !important; }',
 
     // === 文字颜色（使用 CSS 变量；排除 pre/code 子树，保留语法高亮 hljs 配色）===
@@ -468,10 +469,9 @@ function buildInjectScript() {
     // === 模态遮罩 ===
     '[class*="modal-overlay"], [class*="ModalOverlay"] {',
     '  background: rgba(var(--wb-bg-rgb),0.45) !important; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);',
-    '}',
-
-    // === 遮罩层 ===
-    '#wb-bg-overlay { background: rgba(var(--wb-bg-rgb),0) !important; }'
+    '}'
+    // 注意：#wb-bg-overlay 的遮罩色由 JS 每帧 inline 设置（overlay 配置），
+    // 此处不得用 !important 覆盖，否则"背景暗色遮罩"设置永远无效
   ].join('\\n');
 
   function buildTextColorCSS(tc) {
@@ -547,6 +547,8 @@ function buildInjectScript() {
       document.documentElement.style.removeProperty('--wb-bg-opacity');
       document.documentElement.style.removeProperty('--wb-bg-blur');
       document.documentElement.style.removeProperty('--wb-bg-scale');
+      document.documentElement.style.removeProperty('--wb-bg-size');
+      document.documentElement.style.removeProperty('--wb-bg-pos');
       layer.style.display = 'none';
       var ov = document.getElementById('wb-bg-overlay');
       if (ov) ov.style.background = 'rgba(0,0,0,0)';
@@ -562,6 +564,10 @@ function buildInjectScript() {
     if (cfg.type === 'image') {
       document.documentElement.style.setProperty('--wb-bg-art', 'url(' + src + ')');
       document.documentElement.style.setProperty('--wb-bg-opacity', String(opacity));
+      // 填充/位置映射（fill → 100% 100%，否则 background-size 非法）
+      var sizeMap = { cover: 'cover', contain: 'contain', fill: '100% 100%' };
+      document.documentElement.style.setProperty('--wb-bg-size', sizeMap[cfg.scale] || 'cover');
+      document.documentElement.style.setProperty('--wb-bg-pos', cfg.position || 'center');
       layer.style.display = 'none';
       if (cfg.blur && cfg.blur !== '0px') {
         document.documentElement.style.setProperty('--wb-bg-blur', 'blur(' + cfg.blur + ')');
@@ -575,6 +581,8 @@ function buildInjectScript() {
       document.documentElement.style.removeProperty('--wb-bg-art');
       document.documentElement.style.removeProperty('--wb-bg-blur');
       document.documentElement.style.removeProperty('--wb-bg-scale');
+      document.documentElement.style.removeProperty('--wb-bg-size');
+      document.documentElement.style.removeProperty('--wb-bg-pos');
       var expectedTag = 'video';
       var media = layer.querySelector('video, img');
       var needRebuild = !media || media.tagName.toLowerCase() !== expectedTag || lastMediaSrc !== src;
