@@ -1,6 +1,6 @@
 # WorkBuddy-Skin v1.0.0
 
-> 原生 macOS 桌面应用，为 WorkBuddy 注入自定义背景。零侵入，不修改 WorkBuddy 本体。
+> 跨平台桌面美化工具，为 WorkBuddy 注入自定义背景与动效。零侵入，不修改 WorkBuddy 本体。
 
 ## 预览
 
@@ -10,18 +10,26 @@
 
 ## 安装
 
-下载 [WorkBuddy-Skin-v1.0.0.dmg](https://github.com/YiIimini/WorkBuddy-Skin/releases/download/v1.0.0/WorkBuddy-Skin-v1.0.0.dmg)，拖入 Applications。首次运行需授权。
+**macOS**：下载 [WorkBuddy-Skin-v1.0.0.dmg](https://github.com/YiIimini/WorkBuddy-Skin/releases/download/v1.0.0/WorkBuddy-Skin-v1.0.0.dmg)，将 WorkBuddy-Skin.app **拖入 DMG 窗口中的 Applications 文件夹**。首次运行需授权。
+
+**Windows**：
+1. 安装 [Node.js 18+](https://nodejs.org)，克隆本仓库
+2. 在仓库目录执行：`npm install chrome-remote-interface gsap`
+3. 运行启动器：`powershell -ExecutionPolicy Bypass -File launcher.ps1`
+4. 打开设置面板 http://localhost:17890 进行配置（原生管理器窗口为 macOS 独占，Windows 使用网页面板）
 
 ## 功能
 
 - **背景注入**：CDP 注入图片/视频背景，RAF 持续渲染，页面导航自动恢复（localStorage 持久化）
-- **GSAP 动效**：按钮磁吸悬浮 + 按压回弹、弹窗/菜单弹簧进场 + 子项级联、输入框焦点光晕呼吸（尊重系统"减少动态效果"设置）
+- **跨平台**：macOS 原生管理器 + Windows PowerShell 启动器（daemon.js 全平台通用）
+- **GSAP 动效**：按钮磁吸悬浮 + 按压回弹、弹窗/菜单弹簧进场 + 子项级联、输入框焦点光晕呼吸 + 打字辉光、自定义高亮光标（尊重系统"减少动态效果"设置）
+- **深度思考优化**：思维链内容去模糊（实底玻璃 + 无文字阴影 + 全不透明度）
 - **流体玻璃 UI**：侧边栏/面板/按钮/输入框统一毛玻璃效果（backdrop-filter + 渐变 + 内发光）
 - **7 种主题**：暗紫/暗蓝/暗绿/暖橙/玫瑰/石板/午夜（CSS 变量配色体系）
 - **自动取色**：根据背景图片亮度自动匹配文字色 + 取色板手动选色
 - **实时调节**：透明度/遮罩/模糊/填充/位置，即时热更新
 - **菜单栏**：图标 + 快捷操作（注入/启用背景/状态/刷新/打开窗口 ⌘O）
-- **纯原生**：Swift + Cocoa 开发，无需 Electron
+- **纯原生**：Swift + Cocoa 开发（macOS 管理器），无需 Electron
 
 ## 当前版本修复
 
@@ -43,9 +51,9 @@ WorkBuddy (Electron)                 ← 目标应用
 
 ## 系统要求
 
-- macOS 11.0+
+- macOS 11.0+（原生管理器）或 Windows 10/11（脚本模式）
 - WorkBuddy 已安装
-- 首次运行需授予辅助功能权限
+- macOS 首次运行需授予辅助功能权限
 
 ## 社交媒体
 

@@ -33,12 +33,32 @@ const MANAGER_HTML = path.join(BASE_DIR, 'manager.html');
 const LOG_PATH = path.join(BASE_DIR, 'daemon.log');
 const PID_PATH = path.join(BASE_DIR, 'daemon.pid');
 
-// Node.js 路径（用于 chrome-remote-interface 依赖）
-const NODE_MODULES = '/Users/x/.workbuddy/binaries/node/workspace/node_modules';
-const CDP = require(path.join(NODE_MODULES, 'chrome-remote-interface'));
+// 依赖路径多候选解析（跨平台：macOS 托管目录 / 项目本地 / 环境变量 / 全局）
+const DEP_CANDIDATES = [
+  process.env.WBSKIN_NODE_MODULES,
+  path.join(BASE_DIR, 'node_modules'),
+  '/Users/x/.workbuddy/binaries/node/workspace/node_modules',
+].filter(Boolean);
 
-// GSAP 库路径（通过 /vendor/gsap.min.js 提供给注入页面）
-const GSAP_DIST = path.join(NODE_MODULES, 'gsap', 'dist', 'gsap.min.js');
+function requireFromCandidates(name) {
+  for (const p of DEP_CANDIDATES) {
+    try { return require(path.join(p, name)); } catch {}
+  }
+  return require(name); // 兜底：标准解析（全局或上级 node_modules）
+}
+
+function resolveDist(rel) {
+  for (const p of DEP_CANDIDATES) {
+    const f = path.join(p, rel);
+    if (fs.existsSync(f)) return f;
+  }
+  return null;
+}
+
+const CDP = requireFromCandidates('chrome-remote-interface');
+
+// GSAP 库路径（通过 /vendor/gsap.min.js 提供给注入页面；未安装时路由返回 404，注入侧静默降级）
+const GSAP_DIST = resolveDist(path.join('gsap', 'dist', 'gsap.min.js'));
 
 const HTTP_PORT = 17890;
 const CDP_PORT = 9222;
@@ -342,9 +362,14 @@ function buildInjectScript() {
     '  caret-color: var(--wb-accent) !important;',
     '}',
     'textarea, [contenteditable], .ProseMirror {',
-    '  line-height: 1.6 !important;',
+    '  line-height: 1.7 !important;',
+    '  letter-spacing: 0.012em !important;',
     '  font-size: 14px !important;',
+    '  word-break: break-word !important;',
     '}',
+    'input, textarea { padding: 8px 12px !important; }',
+    '.ProseMirror { padding: 6px 8px !important; }',
+    'body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }',
     'input:focus, textarea:focus, select:focus, [contenteditable]:focus, .ProseMirror-focused {',
     '  border-color: rgba(var(--wb-accent-rgb),0.5) !important;',
     '  box-shadow: 0 0 0 3px rgba(var(--wb-accent-rgb),0.12), inset 0 1px 3px rgba(0,0,0,0.15);',
@@ -363,6 +388,21 @@ function buildInjectScript() {
     'input, textarea, [contenteditable], .ProseMirror { caret-color: var(--wb-accent) !important; }',
     'input::placeholder, textarea::placeholder { color: rgba(var(--wb-muted-rgb),0.55) !important; font-style: normal; }',
     '.ProseMirror p.is-editor-empty:first-child::before { color: rgba(var(--wb-muted-rgb),0.55) !important; }',
+
+    // === 深度思考内容：去模糊（实底玻璃 + 无阴影 + 全不透明度）===
+    '[class*="think"], [class*="Think"], [class*="reason"], [class*="Reason"], [data-thinking] {',
+    '  background: rgba(var(--wb-bg-rgb),0.62) !important;',
+    '  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;',
+    '  filter: none !important; opacity: 1 !important;',
+    '  border: 1px solid rgba(255,255,255,0.07) !important;',
+    '  border-radius: 12px !important;',
+    '}',
+    '[class*="think"] *, [class*="Think"] *, [class*="reason"] *, [class*="Reason"] *, [data-thinking] * {',
+    '  text-shadow: none !important;',
+    '  opacity: 1 !important;',
+    '  filter: none !important;',
+    '  color: var(--wb-text) !important;',
+    '}',
 
     // === 模态遮罩 ===
     '[class*="modal-overlay"], [class*="ModalOverlay"] {',
@@ -523,7 +563,9 @@ function buildInjectScript() {
     if (el.className && typeof el.className === 'string' &&
         (el.className.indexOf('modal') !== -1 || el.className.indexOf('monaco') !== -1 ||
          el.className.indexOf('menu') !== -1 || el.className.indexOf('dialog') !== -1 ||
-         el.className.indexOf('chat-input') !== -1 || el.className.indexOf('sidebar') !== -1)) return;
+         el.className.indexOf('chat-input') !== -1 || el.className.indexOf('sidebar') !== -1 ||
+         el.className.indexOf('think') !== -1 || el.className.indexOf('Think') !== -1 ||
+         el.className.indexOf('reason') !== -1 || el.className.indexOf('Reason') !== -1)) return;
     // 跳过表单/代码/UI控件
     var tag = el.tagName ? el.tagName.toLowerCase() : '';
     if (['input','textarea','select','button','pre','code','svg','canvas','video','img'].indexOf(tag) !== -1) return;
@@ -780,6 +822,83 @@ function buildInjectScript() {
       }
     }, 800);
     setTimeout(function () { if (!chatSeen) clearInterval(chatCheck); }, 30000);
+
+    // ── 4. 自定义高亮光标：原生 caret 上叠加发光层（GSAP 呼吸闪烁）──
+    var caretEl = null;
+    var caretVisible = false;
+
+    function ensureCaret() {
+      if (!caretEl || !caretEl.parentNode) {
+        caretEl = document.createElement('div');
+        caretEl.id = 'wb-caret';
+        document.body.appendChild(caretEl);
+      }
+      return caretEl;
+    }
+
+    function caretFieldOf() {
+      var ae = document.activeElement;
+      if (!ae) return null;
+      if (ae.isContentEditable || (ae.classList && ae.classList.contains('ProseMirror'))) return ae;
+      if (ae.closest) return ae.closest('[contenteditable="true"], .ProseMirror');
+      return null;
+    }
+
+    function caretRect() {
+      // 仅对 contenteditable/ProseMirror 精确定位；input/textarea 用原生彩色 caret 即可
+      if (!caretFieldOf()) return null;
+      try {
+        var sel = window.getSelection();
+        if (!sel || !sel.rangeCount) return null;
+        var r = sel.getRangeAt(0).cloneRange();
+        r.collapse(true);
+        var rects = r.getClientRects();
+        if (rects && rects.length) return rects[0];
+        var br = r.getBoundingClientRect();
+        if (br && (br.height || br.top)) return br;
+      } catch (e) {}
+      return null;
+    }
+
+    function paintCaretStyle(c) {
+      var rgb = accentRgb();
+      c.style.cssText = 'position:fixed;z-index:2147483646;pointer-events:none;width:2px;border-radius:2px;opacity:0;'
+        + 'background:linear-gradient(180deg, rgba(' + rgb + ',0.95), rgba(' + rgb + ',0.60));'
+        + 'box-shadow:0 0 6px rgba(' + rgb + ',0.85), 0 0 16px rgba(' + rgb + ',0.45);';
+    }
+
+    function updateCaret() {
+      var rc = caretRect();
+      if (!rc) { hideCaret(); return; }
+      var c = ensureCaret();
+      paintCaretStyle(c);
+      c.style.left = rc.left + 'px';
+      c.style.top = rc.top + 'px';
+      c.style.height = (rc.height || 18) + 'px';
+      if (!caretVisible) {
+        caretVisible = true;
+        g.to(c, { opacity: 0.95, duration: 0.18, ease: 'power2.out' });
+        c.__wbPulse = g.timeline({ repeat: -1, yoyo: true })
+          .to(c, { opacity: 0.35, duration: 0.55, ease: 'sine.inOut' });
+      }
+    }
+
+    function hideCaret() {
+      if (!caretEl || !caretVisible) return;
+      caretVisible = false;
+      if (caretEl.__wbPulse) { caretEl.__wbPulse.kill(); caretEl.__wbPulse = null; }
+      g.to(caretEl, { opacity: 0, duration: 0.15, ease: 'power1.out' });
+    }
+
+    var caretRaf = false;
+    function scheduleCaret() {
+      if (caretRaf) return;
+      caretRaf = true;
+      requestAnimationFrame(function () { caretRaf = false; updateCaret(); });
+    }
+    document.addEventListener('selectionchange', scheduleCaret);
+    document.addEventListener('scroll', scheduleCaret, true);
+    document.addEventListener('focusout', hideCaret, true);
 
     console.log('[wb-bg] GSAP UI 动效已启用');
   }
@@ -1126,8 +1245,21 @@ server = http.createServer(async (req, res) => {
     return;
   }
 
-  // GET /api/pick → 弹出 macOS 原生文件选择器
+  // GET /api/pick → 弹出系统原生文件选择器（macOS: osascript / Windows: PowerShell）
   if (pathname === '/api/pick' && req.method === 'GET') {
+    if (process.platform === 'win32') {
+      const ps = 'Add-Type -AssemblyName System.Windows.Forms; $d = New-Object System.Windows.Forms.OpenFileDialog; $d.Filter = "图片/视频|*.jpg;*.jpeg;*.png;*.gif;*.webp;*.bmp;*.mp4;*.webm;*.mov;*.mkv"; if ($d.ShowDialog() -eq "OK") { $d.FileName }';
+      execFile('powershell', ['-NoProfile', '-Command', ps], (err, stdout) => {
+        if (err || !stdout.trim()) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, cancelled: true, path: '' }));
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, path: stdout.trim() }));
+      });
+      return;
+    }
     execFile('osascript', ['-e', 'POSIX path of (choose file with prompt "选择背景图片或视频" of type {"public.image","public.movie"})'], (err, stdout) => {
       if (err) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1141,18 +1273,18 @@ server = http.createServer(async (req, res) => {
     return;
   }
 
-  // POST /api/start-workbuddy → 启动 WorkBuddy（带 CDP）
+  // POST /api/start-workbuddy → 启动 WorkBuddy（带 CDP，按平台选择启动器）
   if (pathname === '/api/start-workbuddy' && req.method === 'POST') {
     const { spawn } = require('child_process');
-    const launcherPath = path.join(BASE_DIR, 'launcher.sh');
+    const isWin = process.platform === 'win32';
+    const launcherPath = path.join(BASE_DIR, isWin ? 'launcher.ps1' : 'launcher.sh');
 
-    log('api', '收到启动 WorkBuddy 请求');
+    log('api', `收到启动 WorkBuddy 请求（${isWin ? 'Windows' : 'macOS'}）`);
 
-    // 在后台执行 launcher.sh
-    const launcher = spawn('bash', [launcherPath], {
-      detached: true,
-      stdio: 'ignore'
-    });
+    // 在后台执行启动器
+    const launcher = isWin
+      ? spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', launcherPath], { detached: true, stdio: 'ignore' })
+      : spawn('bash', [launcherPath], { detached: true, stdio: 'ignore' });
 
     launcher.unref();
 
