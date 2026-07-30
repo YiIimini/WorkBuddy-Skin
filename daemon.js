@@ -163,6 +163,13 @@ function buildInjectScript() {
   if (window.__wbBgRAF) { cancelAnimationFrame(window.__wbBgRAF); }
   if (window.__wbBgPoll) { clearInterval(window.__wbBgPoll); }
 
+  // 代际守卫：每次注入递增全局代际号，旧 RAF 循环检测到代际不符即自毁，
+  // 防止多次注入（守护进程重启/重复 evaluate）导致新旧脚本循环互抢样式表
+  window.__wbBgGen = (window.__wbBgGen || 0) + 1;
+  var __gen = window.__wbBgGen;
+  // 立即清除旧样式表残影（含历史版本注入的）
+  try { var staleCss = document.getElementById('wb-bg-css'); if (staleCss) staleCss.remove(); } catch(e) {}
+
   var DAEMON = 'http://localhost:${HTTP_PORT}';
   var currentConfig = null;
   var currentFileUri = null;
@@ -254,9 +261,28 @@ function buildInjectScript() {
     'div, section, main, article, nav, aside, ul, ol, li { background: transparent !important; }',
     'span, p { background-color: transparent !important; }',
 
-    // === 文字颜色（使用 CSS 变量）===
-    'body, div, span, p, a, li { color: var(--wb-text) !important; text-shadow: 0 1px 2px rgba(var(--wb-bg-rgb),0.72); }',
+    // === 文字颜色（使用 CSS 变量；排除 pre/code 子树，保留语法高亮 hljs 配色）===
+    'body:not(pre *):not(code *), div:not(pre *):not(code *), span:not(pre *):not(code *), p:not(pre *):not(code *), a:not(pre *):not(code *), li:not(pre *):not(code *) { color: var(--wb-text) !important; text-shadow: 0 1px 2px rgba(var(--wb-bg-rgb),0.72); }',
     'svg, [class*="icon"] { text-shadow: none !important; }',
+    'pre, pre *, code, code *, .hljs, .hljs *, [class*="execute-command"], [class*="execute-command"] * { text-shadow: none !important; }',
+
+    // === 终端命令组件：实底代码风格 + 等宽字体 + 可横向滚动看全内容 ===
+    '[class*="execute-command"] {',
+    '  background: rgba(var(--wb-bg-rgb),0.68) !important;',
+    '  border: 1px solid rgba(var(--wb-accent-rgb),0.16) !important;',
+    '  border-radius: 10px !important;',
+    '  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03) !important;',
+    '}',
+    '[class*="execute-command"] [class*="__command"] {',
+    '  font-family: "SF Mono", Menlo, Consolas, monospace !important;',
+    '  font-size: 12.5px !important;',
+    '  color: var(--wb-text) !important;',
+    '}',
+    '[class*="execute-command"] [class*="__header"], [class*="execute-command"] [class*="__command"] {',
+    '  overflow-x: auto !important;',
+    '  text-overflow: clip !important;',
+    '  scrollbar-width: thin;',
+    '}',
 
     // === 侧边栏：透明流体玻璃 ===
     '[data-view-id=sidebar] {',
@@ -395,9 +421,21 @@ function buildInjectScript() {
     'pre, code, [class*="monaco"], [class*="editor"] {',
     '  background: rgba(var(--wb-bg-rgb),0.6) !important;',
     '  color: var(--wb-text) !important;',
-    '  border-radius: 10px;',
+    '  border: 1px solid rgba(var(--wb-accent-rgb),0.12) !important;',
+    '  border-radius: 10px !important;',
     '  text-shadow: none !important;',
     '}',
+
+    // === 语法高亮配色（宿主 hljs 无 token 配色，补 VS Code Dark+ 调色板）===
+    '.hljs-keyword, .hljs-selector-tag, .hljs-tag { color: #c586c0 !important; }',
+    '.hljs-string, .hljs-attr, .hljs-attribute, .hljs-regexp { color: #ce9178 !important; }',
+    '.hljs-comment, .hljs-quote { color: #6a9955 !important; font-style: italic; }',
+    '.hljs-number, .hljs-literal { color: #b5cea8 !important; }',
+    '.hljs-title, .hljs-name, .hljs-section { color: #dcdcaa !important; }',
+    '.hljs-type, .hljs-class, .hljs-built_in { color: #4ec9b0 !important; }',
+    '.hljs-selector-id, .hljs-selector-class, .hljs-symbol { color: #4fc1ff !important; }',
+    '.hljs-variable, .hljs-template-variable, .hljs-params { color: #9cdcfe !important; }',
+    '.hljs-meta, .hljs-operator, .hljs-punctuation { color: #d4d4d4 !important; }',
 
     // === 文本选择 & 光标美化（GSAP 焦点光晕的静态底座）===
     '::selection { background: rgba(var(--wb-accent-rgb),0.38) !important; color: #ffffff !important; text-shadow: none !important; }',
@@ -580,6 +618,7 @@ function buildInjectScript() {
         (el.className.indexOf('modal') !== -1 || el.className.indexOf('monaco') !== -1 ||
          el.className.indexOf('menu') !== -1 || el.className.indexOf('dialog') !== -1 ||
          el.className.indexOf('chat-input') !== -1 || el.className.indexOf('sidebar') !== -1 ||
+         el.className.indexOf('command') !== -1 || el.className.indexOf('markdown-pre') !== -1 ||
          el.className.indexOf('think') !== -1 || el.className.indexOf('Think') !== -1 ||
          el.className.indexOf('reason') !== -1 || el.className.indexOf('Reason') !== -1)) return;
     // 跳过表单/代码/UI控件
@@ -647,6 +686,7 @@ function buildInjectScript() {
 
   // RAF 主循环
   function tick() {
+    if (window.__wbBgGen !== __gen) return; // 已有更新版本接管，本旧循环退出
     try {
       setupMO();
       ensureCSS();
