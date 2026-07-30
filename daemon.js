@@ -300,13 +300,23 @@ function buildInjectScript() {
     '  text-shadow: 0 1px 3px rgba(0,0,0,0.4) !important;',
     '}',
 
-    // === 聊天输入区：悬浮玻璃 ===
+    // === 聊天输入区：悬浮玻璃（--wb-glow/--wb-type 由 GSAP 驱动，CSS 不含 box-shadow 过渡）===
     '.atm-modal-chat-input {',
     '  background: linear-gradient(180deg, rgba(var(--wb-panel-rgb),0.65), rgba(var(--wb-bg-rgb),0.55)) !important;',
     '  backdrop-filter: blur(20px) saturate(1.3); -webkit-backdrop-filter: blur(20px) saturate(1.3);',
     '  border-radius: 16px !important;',
     '  border: 1px solid rgba(255,255,255,0.08) !important;',
-    '  box-shadow: 0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04);',
+    '  box-shadow: 0 4px 20px rgba(0,0,0,0.25),',
+    '    0 0 calc(var(--wb-glow, 0) * 28px) rgba(var(--wb-accent-rgb), calc(var(--wb-glow, 0) * 0.28)),',
+    '    0 0 0 calc(var(--wb-glow, 0) * 1.5px) rgba(var(--wb-accent-rgb), calc(var(--wb-glow, 0) * 0.50)),',
+    '    0 0 calc(var(--wb-type, 0) * 18px) rgba(var(--wb-accent-rgb), calc(var(--wb-type, 0) * 0.35)),',
+    '    inset 0 1px 0 rgba(255,255,255,0.04);',
+    '  transition: border-color 0.25s, background 0.25s !important;',
+    '  will-change: transform, box-shadow;',
+    '}',
+    '.atm-modal-chat-input:focus-within {',
+    '  border-color: rgba(var(--wb-accent-rgb),0.45) !important;',
+    '  background: linear-gradient(180deg, rgba(var(--wb-panel-rgb),0.72), rgba(var(--wb-bg-rgb),0.62)) !important;',
     '}',
     '.atm-modal-chat-input div { background: transparent !important; }',
 
@@ -351,6 +361,8 @@ function buildInjectScript() {
     // === 文本选择 & 光标美化（GSAP 焦点光晕的静态底座）===
     '::selection { background: rgba(var(--wb-accent-rgb),0.38) !important; color: #ffffff !important; text-shadow: none !important; }',
     'input, textarea, [contenteditable], .ProseMirror { caret-color: var(--wb-accent) !important; }',
+    'input::placeholder, textarea::placeholder { color: rgba(var(--wb-muted-rgb),0.55) !important; font-style: normal; }',
+    '.ProseMirror p.is-editor-empty:first-child::before { color: rgba(var(--wb-muted-rgb),0.55) !important; }',
 
     // === 模态遮罩 ===
     '[class*="modal-overlay"], [class*="ModalOverlay"] {',
@@ -705,8 +717,11 @@ function buildInjectScript() {
     });
     popupMO.observe(document.documentElement, { childList: true, subtree: true });
 
-    // ── 3. 输入框：焦点光晕呼吸（caret 主题色走 CSS caret-color）──
+    // ── 3. 输入框：字段呼吸光晕 + 聊天容器聚焦悬浮 + 打字辉光 ──
     var INPUT_SEL = 'input:not([type=button]):not([type=submit]):not([type=checkbox]):not([type=radio]), textarea, [contenteditable="true"], .ProseMirror';
+    var CHATBOX_SEL = '.atm-modal-chat-input';
+
+    function chatBoxOf(el) { return el && el.closest ? el.closest(CHATBOX_SEL) : null; }
 
     document.addEventListener('focusin', function (e) {
       var t = e.target;
@@ -723,14 +738,48 @@ function buildInjectScript() {
       // 呼吸光晕（失焦时 kill，防止泄漏）
       el.__wbFocusTl = g.timeline({ repeat: -1, yoyo: true, delay: 0.3 })
         .to(el, { boxShadow: glowB, duration: 1.1, ease: 'sine.inOut' });
+      // 聊天容器：聚焦悬浮 + 光环点亮（GSAP 驱动 CSS 变量 --wb-glow）
+      var box = chatBoxOf(el);
+      if (box) {
+        g.to(box, { y: -3, '--wb-glow': 1, duration: 0.4, ease: 'power3.out', overwrite: 'auto' });
+      }
     }, true);
 
     document.addEventListener('focusout', function (e) {
       var el = e.target;
-      if (!el || !el.__wbFocusTl) return;
-      el.__wbFocusTl.kill(); el.__wbFocusTl = null;
-      g.to(el, { boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.15)', duration: 0.3, ease: 'power2.out', overwrite: 'auto' });
+      if (!el) return;
+      if (el.__wbFocusTl) {
+        el.__wbFocusTl.kill(); el.__wbFocusTl = null;
+        g.to(el, { boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.15)', duration: 0.3, ease: 'power2.out', overwrite: 'auto' });
+      }
+      var box = chatBoxOf(el);
+      if (box) {
+        g.to(box, { y: 0, '--wb-glow': 0, '--wb-type': 0, duration: 0.45, ease: 'power2.out', overwrite: 'auto' });
+      }
     }, true);
+
+    // 打字辉光：每次击键点亮 --wb-type，停笔后自然衰减
+    document.addEventListener('input', function (e) {
+      var t = e.target;
+      var el = (t && t.matches && t.matches(INPUT_SEL)) ? t
+        : (t && t.closest ? t.closest('[contenteditable="true"], .ProseMirror') : null);
+      if (!el) return;
+      var box = chatBoxOf(el) || el;
+      g.set(box, { '--wb-type': 0.85 });
+      g.to(box, { '--wb-type': 0, duration: 0.9, ease: 'power2.out', delay: 0.25, overwrite: 'auto' });
+    }, true);
+
+    // 聊天容器首次出现：上浮进场（最多轮询 30 秒，兼容异步渲染）
+    var chatSeen = false;
+    var chatCheck = setInterval(function () {
+      var box = document.querySelector(CHATBOX_SEL);
+      if (box) {
+        chatSeen = true;
+        clearInterval(chatCheck);
+        g.fromTo(box, { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: 'power3.out' });
+      }
+    }, 800);
+    setTimeout(function () { if (!chatSeen) clearInterval(chatCheck); }, 30000);
 
     console.log('[wb-bg] GSAP UI 动效已启用');
   }
