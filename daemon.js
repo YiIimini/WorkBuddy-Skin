@@ -593,6 +593,15 @@ function buildInjectScript() {
         if (media) {
           media.style.objectFit = cfg.scale || 'cover';
           media.style.objectPosition = cfg.position || 'center';
+          // 修复：模糊配置变化无需重建媒体，每帧同步 filter/transform，
+          // 否则用户在管理器改"模糊"后视频永远保持旧模糊值
+          if (cfg.blur && cfg.blur !== '0px') {
+            media.style.filter = 'blur(' + cfg.blur + ')';
+            media.style.transform = 'scale(1.05)';
+          } else {
+            media.style.filter = '';
+            media.style.transform = '';
+          }
         }
       }
 
