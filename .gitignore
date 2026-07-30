@@ -1,21 +1,8 @@
-# 运行时文件
+# WorkBuddy 工作区数据（不进入仓库）
+.workbuddy/
+
+# 运行时产物
 daemon.log
 daemon.pid
-tray.log
-tray.pid
-
-# macOS
-.DS_Store
-
-# 编辑器
-*.swp
-*.swo
-*~
-
-# 临时文件
-*.tmp
-*.bak
-
-# 构建产物
-*.dmg
-build/
+dist/
+node_modules/
