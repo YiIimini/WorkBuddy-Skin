@@ -457,6 +457,13 @@ function buildInjectScript() {
     '  filter: none !important;',
     '  color: var(--wb-text) !important;',
     '}',
+    // 深度思考内容区：放宽高度上限 + 横向可滚动，内容可完整阅读（宿主 200px 封顶+裁剪）
+    '[class*="assistantReasoningContent"] {',
+    '  max-height: min(60vh, 720px) !important;',
+    '  overflow-x: auto !important;',
+    '  overflow-y: auto !important;',
+    '  scrollbar-width: thin;',
+    '}',
 
     // === 模态遮罩 ===
     '[class*="modal-overlay"], [class*="ModalOverlay"] {',
