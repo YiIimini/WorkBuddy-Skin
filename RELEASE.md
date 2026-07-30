@@ -1,12 +1,12 @@
-# WorkBuddy-Skin v2.4 Release Notes
+# WorkBuddy-Skin v1.0.0 Release Notes
 
 ## 发布日期
 2026-07-30
 
 ## 下载
-**DMG：** [WorkBuddy-Skin-v2.4.dmg](../../releases/download/v2.4/WorkBuddy-Skin-v2.4.dmg)
+**DMG：** [WorkBuddy-Skin-v1.0.0.dmg](../../releases/download/v1.0.0/WorkBuddy-Skin-v1.0.0.dmg)
 
-## v2.4 更新
+## v1.0.0 更新
 
 ### GSAP 动效美化（新增）
 - **按钮**：磁吸悬浮（back.out 回弹上浮）+ 按压弹性回弹（elastic.out），事件委托兼容 React 动态 DOM

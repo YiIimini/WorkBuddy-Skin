@@ -127,7 +127,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ])
 
         // ── 标题
-        let titleLabel = NSTextField(labelWithString: "WorkBuddy-Skin 背景注入管理器 v2.4")
+        let titleLabel = NSTextField(labelWithString: "WorkBuddy-Skin 背景注入管理器 v1.0.0")
         titleLabel.font = NSFont.boldSystemFont(ofSize: 22); titleLabel.textColor = .textTitle; titleLabel.alignment = .center
         main.addArrangedSubview(titleLabel)
         main.setCustomSpacing(24, after: titleLabel)

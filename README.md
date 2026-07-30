@@ -1,4 +1,4 @@
-# WorkBuddy-Skin v2.4
+# WorkBuddy-Skin v1.0.0
 
 > 原生 macOS 桌面应用，为 WorkBuddy 注入自定义背景。零侵入，不修改 WorkBuddy 本体。
 
@@ -10,7 +10,7 @@
 
 ## 安装
 
-下载 [WorkBuddy-Skin-v2.4.dmg](https://github.com/YiIimini/WorkBuddy-Skin/releases/download/v2.4/WorkBuddy-Skin-v2.4.dmg)，拖入 Applications。首次运行需授权。
+下载 [WorkBuddy-Skin-v1.0.0.dmg](https://github.com/YiIimini/WorkBuddy-Skin/releases/download/v1.0.0/WorkBuddy-Skin-v1.0.0.dmg)，拖入 Applications。首次运行需授权。
 
 ## 功能
 
@@ -23,7 +23,7 @@
 - **菜单栏**：图标 + 快捷操作（注入/启用背景/状态/刷新/打开窗口 ⌘O）
 - **纯原生**：Swift + Cocoa 开发，无需 Electron
 
-## v2.4 修复
+## 当前版本修复
 
 - **窗口关闭后无法重开**：实现 `applicationShouldHandleReopen` 处理 Dock 点击（原 `didBecomeActive` 方案在 app 已激活时不触发），并显式 `isReleasedWhenClosed = false`
 - **菜单栏点击闪退**：`currentConfig`（Swift Dictionary）原在后台线程读取、主线程写入，数据竞争导致崩溃；改为主线程快照 → 后台端口探测 → 主线程更新 UI
