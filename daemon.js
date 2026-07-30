@@ -37,6 +37,9 @@ const PID_PATH = path.join(BASE_DIR, 'daemon.pid');
 const NODE_MODULES = '/Users/x/.workbuddy/binaries/node/workspace/node_modules';
 const CDP = require(path.join(NODE_MODULES, 'chrome-remote-interface'));
 
+// GSAP 库路径（通过 /vendor/gsap.min.js 提供给注入页面）
+const GSAP_DIST = path.join(NODE_MODULES, 'gsap', 'dist', 'gsap.min.js');
+
 const HTTP_PORT = 17890;
 const CDP_PORT = 9222;
 
@@ -253,7 +256,8 @@ function buildInjectScript() {
     '  background: transparent !important;',
     '  color: var(--wb-text) !important;',
     '  border-radius: 10px !important;',
-    '  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;',
+    '  transition: background 0.2s, box-shadow 0.2s, border-color 0.2s, color 0.2s !important;',
+    '  will-change: transform;',
     '}',
     '[data-view-id=sidebar] button:hover, [data-view-id=sidebar] a:hover {',
     '  background: rgba(255,255,255,0.06) !important;',
@@ -265,7 +269,7 @@ function buildInjectScript() {
     '  box-shadow: 0 0 16px rgba(var(--wb-accent-rgb),0.08) !important;',
     '}',
 
-    // === 按钮：流体玻璃悬浮效果 ===
+    // === 按钮：流体玻璃悬浮效果（transform 交由 GSAP 驱动，CSS 只过渡颜色/阴影）===
     'button:not([class*="sidebar"]):not([class*="menu"]) {',
     '  background: var(--wb-glass-light) !important;',
     '  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);',
@@ -273,16 +277,15 @@ function buildInjectScript() {
     '  border-radius: 12px !important;',
     '  color: var(--wb-text) !important;',
     '  box-shadow: 0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.04);',
-    '  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;',
+    '  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, color 0.2s !important;',
+    '  will-change: transform;',
     '}',
     'button:hover:not([class*="sidebar"]):not([class*="menu"]) {',
     '  background: rgba(255,255,255,0.08) !important;',
     '  border-color: rgba(var(--wb-accent-rgb),0.3) !important;',
     '  box-shadow: 0 4px 16px rgba(var(--wb-accent-rgb),0.15), 0 0 0 1px rgba(var(--wb-accent-rgb),0.12);',
-    '  transform: translateY(-2px);',
     '}',
     'button:active:not([class*="sidebar"]):not([class*="menu"]) {',
-    '  transform: translateY(0) scale(0.98);',
     '  box-shadow: 0 1px 3px rgba(0,0,0,0.2);',
     '}',
 
@@ -314,6 +317,8 @@ function buildInjectScript() {
     '  border-radius: 14px !important;',
     '  border: 1px solid rgba(255,255,255,0.08) !important;',
     '  box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,107,166,0.06);',
+    '  transform-origin: top center;',
+    '  will-change: transform, opacity;',
     '}',
 
     // === 表单：高可读性玻璃输入框 ===
@@ -342,6 +347,10 @@ function buildInjectScript() {
     '  border-radius: 10px;',
     '  text-shadow: none !important;',
     '}',
+
+    // === 文本选择 & 光标美化（GSAP 焦点光晕的静态底座）===
+    '::selection { background: rgba(var(--wb-accent-rgb),0.38) !important; color: #ffffff !important; text-shadow: none !important; }',
+    'input, textarea, [contenteditable], .ProseMirror { caret-color: var(--wb-accent) !important; }',
 
     // === 模态遮罩 ===
     '[class*="modal-overlay"], [class*="ModalOverlay"] {',
@@ -581,6 +590,151 @@ function buildInjectScript() {
     window.__wbBgRAF = requestAnimationFrame(tick);
   }
 
+  // ═══ GSAP 动效美化（按钮 / 弹窗 / 输入焦点光晕） ═══
+  var reduceMotion = false;
+  try { reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+
+  function accentRgb() {
+    var v = '255,107,166';
+    try {
+      var c = getComputedStyle(document.documentElement).getPropertyValue('--wb-accent-rgb');
+      if (c && c.trim()) v = c.trim();
+    } catch (e) {}
+    return v;
+  }
+
+  function loadGsap(cb) {
+    if (window.gsap) { cb(window.gsap); return; }
+    var s = document.createElement('script');
+    s.src = DAEMON + '/vendor/gsap.min.js';
+    s.async = true;
+    s.onload = function () { if (window.gsap) cb(window.gsap); };
+    (document.head || document.documentElement).appendChild(s);
+  }
+
+  function initGsapUI(g) {
+    if (window.__wbGsapUi) return;
+    window.__wbGsapUi = true;
+    if (reduceMotion) return; // 尊重系统"减少动态效果"，保留静态美化
+
+    g.defaults({ duration: 0.25, ease: 'power2.out' });
+
+    // ── 1. 按钮：磁吸悬浮 + 按压回弹（事件委托，兼容 React 动态 DOM）──
+    var hoverBtn = null;
+
+    function btnOf(t) {
+      if (!t || !t.closest) return null;
+      var b = t.closest('button, [role="button"]');
+      if (!b || b.disabled || b.getAttribute('aria-disabled') === 'true') return null;
+      return b;
+    }
+
+    document.addEventListener('pointerover', function (e) {
+      var b = btnOf(e.target);
+      if (!b || b === hoverBtn) return;
+      if (hoverBtn) g.to(hoverBtn, { y: 0, scale: 1, duration: 0.3, overwrite: 'auto' });
+      hoverBtn = b;
+      g.to(b, { y: -2, scale: 1.04, duration: 0.28, ease: 'back.out(2.2)', overwrite: 'auto' });
+    }, true);
+
+    document.addEventListener('pointerout', function (e) {
+      var b = btnOf(e.target);
+      if (!b || b !== hoverBtn) return;
+      if (e.relatedTarget && b.contains(e.relatedTarget)) return; // 子元素间移动不触发
+      hoverBtn = null;
+      g.to(b, { y: 0, scale: 1, duration: 0.32, ease: 'power2.out', overwrite: 'auto' });
+    }, true);
+
+    document.addEventListener('pointerdown', function (e) {
+      var b = btnOf(e.target);
+      if (!b) return;
+      g.to(b, { scale: 0.94, y: 0, duration: 0.1, ease: 'power2.in', overwrite: 'auto' });
+    }, true);
+
+    document.addEventListener('pointerup', function (e) {
+      var b = btnOf(e.target);
+      if (!b) return;
+      var still = (b === hoverBtn); // 回弹到悬浮态或静止态
+      g.to(b, { scale: still ? 1.04 : 1, y: still ? -2 : 0, duration: 0.45, ease: 'elastic.out(1, 0.45)', overwrite: 'auto' });
+    }, true);
+
+    // ── 2. 弹窗/菜单/对话框：弹簧进场 + 子项 stagger（MutationObserver 捕获动态新增）──
+    var POPUP_SEL = '[role="menu"], [role="listbox"], [role="dialog"], [role="alertdialog"], [role="tooltip"], .monaco-menu';
+    var ITEM_SEL = '[role="menuitem"], [role="option"], [role="menuitemcheckbox"], [role="menuitemradio"]';
+    var pending = [];
+    var flushScheduled = false;
+
+    function animatePopup(el) {
+      if (el.__wbAnimated) return;
+      el.__wbAnimated = true;
+      var isTip = el.getAttribute('role') === 'tooltip';
+      var tl = g.timeline();
+      tl.fromTo(el,
+        { autoAlpha: 0, y: isTip ? 4 : -10, scale: isTip ? 1 : 0.96 },
+        { autoAlpha: 1, y: 0, scale: 1, duration: isTip ? 0.2 : 0.34, ease: isTip ? 'power2.out' : 'back.out(1.7)' });
+      var items = el.querySelectorAll(ITEM_SEL);
+      if (items.length) {
+        var list = Array.prototype.slice.call(items, 0, 14);
+        tl.fromTo(list, { autoAlpha: 0, x: -6 }, { autoAlpha: 1, x: 0, duration: 0.18, stagger: 0.024, ease: 'power2.out' }, '-=0.18');
+      }
+    }
+
+    function flushPopups() {
+      flushScheduled = false;
+      var nodes = pending; pending = [];
+      for (var i = 0; i < nodes.length && i < 60; i++) {
+        var n = nodes[i];
+        if (n.nodeType !== 1) continue;
+        try {
+          if (n.matches && n.matches(POPUP_SEL)) animatePopup(n);
+          var found = n.querySelectorAll ? n.querySelectorAll(POPUP_SEL) : [];
+          for (var k = 0; k < found.length && k < 8; k++) animatePopup(found[k]);
+        } catch (e) {}
+      }
+    }
+
+    var popupMO = new MutationObserver(function (recs) {
+      for (var i = 0; i < recs.length; i++) {
+        var added = recs[i].addedNodes;
+        for (var j = 0; j < added.length; j++) pending.push(added[j]);
+      }
+      if (!flushScheduled && pending.length) {
+        flushScheduled = true;
+        requestAnimationFrame(flushPopups); // rAF 批处理，避免高频 DOM 变动抖动
+      }
+    });
+    popupMO.observe(document.documentElement, { childList: true, subtree: true });
+
+    // ── 3. 输入框：焦点光晕呼吸（caret 主题色走 CSS caret-color）──
+    var INPUT_SEL = 'input:not([type=button]):not([type=submit]):not([type=checkbox]):not([type=radio]), textarea, [contenteditable="true"], .ProseMirror';
+
+    document.addEventListener('focusin', function (e) {
+      var t = e.target;
+      var el = (t && t.matches && t.matches(INPUT_SEL)) ? t
+        : (t && t.closest ? t.closest('[contenteditable="true"], .ProseMirror') : null);
+      if (!el) return;
+      if (el.__wbFocusTl) { el.__wbFocusTl.kill(); el.__wbFocusTl = null; }
+      var rgb = accentRgb();
+      var glowA = '0 0 0 3px rgba(' + rgb + ',0.10), 0 0 12px rgba(' + rgb + ',0.10), inset 0 1px 3px rgba(0,0,0,0.15)';
+      var glowB = '0 0 0 3px rgba(' + rgb + ',0.24), 0 0 22px rgba(' + rgb + ',0.20), inset 0 1px 3px rgba(0,0,0,0.15)';
+      g.fromTo(el,
+        { boxShadow: '0 0 0 0 rgba(' + rgb + ',0), inset 0 1px 3px rgba(0,0,0,0.15)' },
+        { boxShadow: glowA, duration: 0.28, ease: 'power2.out', overwrite: 'auto' });
+      // 呼吸光晕（失焦时 kill，防止泄漏）
+      el.__wbFocusTl = g.timeline({ repeat: -1, yoyo: true, delay: 0.3 })
+        .to(el, { boxShadow: glowB, duration: 1.1, ease: 'sine.inOut' });
+    }, true);
+
+    document.addEventListener('focusout', function (e) {
+      var el = e.target;
+      if (!el || !el.__wbFocusTl) return;
+      el.__wbFocusTl.kill(); el.__wbFocusTl = null;
+      g.to(el, { boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.15)', duration: 0.3, ease: 'power2.out', overwrite: 'auto' });
+    }, true);
+
+    console.log('[wb-bg] GSAP UI 动效已启用');
+  }
+
   // 从守护进程拉取配置（自给自足，不依赖 CDP 推送）
   function fetchConfig() {
     try {
@@ -634,6 +788,7 @@ function buildInjectScript() {
   restoreConfig();
   fetchConfig();
   tick();
+  loadGsap(initGsapUI); // 异步加载 GSAP 并启用 UI 动效（失败时静默降级为静态美化）
   window.__wbBgPoll = setInterval(fetchConfig, 2000);
   window.__wbBgInjected = true;
   console.log('[wb-bg] 背景注入已启动（localStorage 持久模式）');
@@ -832,6 +987,19 @@ server = http.createServer(async (req, res) => {
   if (pathname === '/api/config' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(config));
+    return;
+  }
+
+  // GET /vendor/gsap.min.js → GSAP 动画库（供注入页面加载）
+  if (pathname === '/vendor/gsap.min.js' && req.method === 'GET') {
+    try {
+      const js = fs.readFileSync(GSAP_DIST);
+      res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-cache' });
+      res.end(js);
+    } catch (e) {
+      log('http', `gsap.min.js 读取失败: ${e.message}`);
+      res.writeHead(404); res.end('gsap not installed');
+    }
     return;
   }
 

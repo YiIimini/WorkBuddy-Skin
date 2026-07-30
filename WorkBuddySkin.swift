@@ -79,11 +79,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         w.makeKeyAndOrderFront(nil)
     }
 
+    // 关键修复：Dock 图标点击（无论 app 是否已激活）都会触发此委托方法。
+    // 原实现只监听 didBecomeActive 通知 —— 关闭窗口后 app 仍是前台应用，
+    // 再点 Dock 不会触发该通知，导致窗口永远无法重开。
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag, let w = window {
+            w.makeKeyAndOrderFront(nil)
+            w.orderFrontRegardless()
+        }
+        return true
+    }
+
     func createWindow() {
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 760, height: 820), styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.title = "WorkBuddy-Skin"; window.titlebarAppearsTransparent = true; window.center()
         window.appearance = NSAppearance(named: .darkAqua)
         window.isMovableByWindowBackground = true
+        // 关键修复：关闭窗口时不释放窗口对象，否则点 "x" 后窗口被销毁，再次打开会崩溃/无反应
+        window.isReleasedWhenClosed = false
 
         // 流体玻璃背景
         let blurView = NSVisualEffectView()
@@ -114,7 +127,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ])
 
         // ── 标题
-        let titleLabel = NSTextField(labelWithString: "WorkBuddy-Skin 背景注入管理器 v1.0.0")
+        let titleLabel = NSTextField(labelWithString: "WorkBuddy-Skin 背景注入管理器 v2.4")
         titleLabel.font = NSFont.boldSystemFont(ofSize: 22); titleLabel.textColor = .textTitle; titleLabel.alignment = .center
         main.addArrangedSubview(titleLabel)
         main.setCustomSpacing(24, after: titleLabel)
@@ -298,17 +311,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         w.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
     }
     @objc func menuStartWorkBuddy() { startWorkBuddy() }
-    @objc func menuToggleBackground() { autoTextToggled(); updateMenuStatus(); showWindow() }
+    // 修复：此菜单项是"启用/停用背景"，原来错绑成 autoTextToggled（切换文字自动配色）
+    @objc func menuToggleBackground() { toggleBackground(); updateMenuStatus() }
     @objc func menuRefreshStatus() { refreshStatus(); updateMenuStatus() }
     func updateMenuStatus() {
+        // 关键修复：先在主线程快照 currentConfig（Swift Dictionary 非线程安全，
+        // 后台线程读 + 主线程写 = 数据竞争，菜单点击时必然闪退），
+        // 后台线程只做端口探测，最后回主线程更新菜单 UI。
+        guard Thread.isMainThread else { DispatchQueue.main.async { self.updateMenuStatus() }; return }
+        let bgActive = (currentConfig["enabled"] as? Bool ?? false) && !(currentConfig["source"] as? String ?? "").isEmpty
         DispatchQueue.global().async {
             let daemonOk = self.checkPort(17890), cdpOk = self.checkPort(9222)
-            let bgActive = (self.currentConfig["enabled"] as? Bool ?? false) && !(self.currentConfig["source"] as? String ?? "").isEmpty
             DispatchQueue.main.async {
-                if let i = self.statusItem.menu?.item(withTag: 201) { i.title = "守护进程: " + (daemonOk ? "✓" : "✗") }
-                if let i = self.statusItem.menu?.item(withTag: 202) { i.title = "CDP 端口: " + (cdpOk ? "✓" : "✗") }
-                if let i = self.statusItem.menu?.item(withTag: 203) { i.title = "背景状态: " + (bgActive ? "✓" : "✗") }
-                if let i = self.statusItem.menu?.item(withTag: 100) { i.title = bgActive ? "停用背景" : "启用背景" }
+                guard let menu = self.statusItem?.menu else { return }
+                if let i = menu.item(withTag: 201) { i.title = "守护进程: " + (daemonOk ? "✓" : "✗") }
+                if let i = menu.item(withTag: 202) { i.title = "CDP 端口: " + (cdpOk ? "✓" : "✗") }
+                if let i = menu.item(withTag: 203) { i.title = "背景状态: " + (bgActive ? "✓" : "✗") }
+                if let i = menu.item(withTag: 100) { i.title = bgActive ? "停用背景" : "启用背景" }
             }
         }
     }
@@ -384,10 +403,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     @objc func refreshStatus() {
+        // 同样的线程安全修复：主线程快照配置，后台仅探测端口
+        guard Thread.isMainThread else { DispatchQueue.main.async { self.refreshStatus() }; return }
+        let bgActive = (currentConfig["enabled"] as? Bool ?? false) && !(currentConfig["source"] as? String ?? "").isEmpty
         DispatchQueue.global().async {
             let d = self.checkPort(17890), c = self.checkPort(9222)
             self.daemonCard.update(d ? "运行中" : "未运行", d); self.cdpCard.update(c ? "已开放" : "未开放", c); self.wbCard.update(c ? "运行中" : "未运行", c)
-            if let e = self.currentConfig["enabled"] as? Bool, let s = self.currentConfig["source"] as? String { self.bgCard.update(e && !s.isEmpty ? "已启用" : "未启用", e && !s.isEmpty) }
+            self.bgCard.update(bgActive ? "已启用" : "未启用", bgActive)
         }
     }
     @objc func selectFile() {
