@@ -259,7 +259,7 @@ function buildInjectScript() {
 
     // === 容器透明化（排除背景层/遮罩层，否则 JS inline 设置的遮罩色会被 !important 压掉）===
     'html, body { background: transparent !important; }',
-    'div:not(#wb-bg-layer):not(#wb-bg-overlay), section, main, article, nav, aside, ul, ol, li { background: transparent !important; }',
+    'div:not(#wb-bg-layer):not(#wb-bg-overlay):not([role="tooltip"]):not([class*="tooltip"]):not([role="dialog"]):not([role="menu"]):not([role="listbox"]):not([role="alertdialog"]):not(.monaco-menu):not([class*="bg-bg-card"]):not([class*="bg-card"]):not([class*="_card_"]):not([class*="agent-card"]):not([class*="conversation-agent-card"]):not([class*="bubble"]):not([class*="Bubble"]), section, main, article, nav, aside, ul, ol, li { background: transparent !important; }',
     'span, p { background-color: transparent !important; }',
 
     // === 文字颜色（使用 CSS 变量；排除 pre/code 子树，保留语法高亮 hljs 配色）===
@@ -392,6 +392,26 @@ function buildInjectScript() {
     '  box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,107,166,0.06);',
     '  transform-origin: top center;',
     '  will-change: transform, opacity;',
+    '}',
+
+    // === 悬浮提示(tooltip)：不透明玻璃，杜绝全透明看不清文字 ===
+    '[role="tooltip"], [class*="tooltip"], .xterm-link-tooltip {',
+    '  background: rgba(var(--wb-panel-rgb),0.94) !important;',
+    '  backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3);',
+    '  border: 1px solid rgba(255,255,255,0.12) !important;',
+    '  border-radius: 10px !important;',
+    '  box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;',
+    '  color: var(--wb-text) !important;',
+    '  padding: 6px 10px !important;',
+    '  text-shadow: none !important;',
+    '  max-width: 340px !important;',
+    '  z-index: 2147483640 !important;',
+    '}',
+    // === 卡片(消息卡/附件卡/气泡等，CSS Modules 哈希类名 _card_ / agent-card / bubble)：半透明玻璃，保证内容可读 ===
+    '[class*="_card_"], [class*="agent-card"], [class*="conversation-agent-card"], [class*="bubble"], [class*="Bubble"] {',
+    '  background: rgba(var(--wb-panel-rgb),0.5) !important;',
+    '  backdrop-filter: blur(10px) saturate(1.2); -webkit-backdrop-filter: blur(10px) saturate(1.2);',
+    '  border: 1px solid rgba(255,255,255,0.08) !important;',
     '}',
 
     // === 表单：高可读性玻璃输入框 ===
