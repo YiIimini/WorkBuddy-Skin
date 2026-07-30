@@ -1,4 +1,4 @@
-# WorkBuddy-Skin v1.0.0
+# WorkBuddy-Skin v1.0.1
 
 > 跨平台桌面美化工具，为 WorkBuddy 注入自定义背景与动效。零侵入，不修改 WorkBuddy 本体。
 
@@ -10,7 +10,7 @@
 
 ## 安装
 
-**macOS**：下载 [WorkBuddy-Skin-v1.0.0.dmg](https://github.com/YiIimini/WorkBuddy-Skin/releases/download/v1.0.0/WorkBuddy-Skin-v1.0.0.dmg)，将 WorkBuddy-Skin.app **拖入 DMG 窗口中的 Applications 文件夹**。首次运行需授权。
+**macOS**：下载 [WorkBuddy-Skin-v1.0.1.dmg](https://github.com/YiIimini/WorkBuddy-Skin/releases/download/v1.0.1/WorkBuddy-Skin-v1.0.1.dmg)，将 WorkBuddy-Skin.app **拖入 DMG 窗口中的 Applications 文件夹**。首次运行需授权。
 
 **Windows**：
 1. 安装 [Node.js 18+](https://nodejs.org)，克隆本仓库
@@ -36,6 +36,13 @@
 - **窗口关闭后无法重开**：实现 `applicationShouldHandleReopen` 处理 Dock 点击（原 `didBecomeActive` 方案在 app 已激活时不触发），并显式 `isReleasedWhenClosed = false`
 - **菜单栏点击闪退**：`currentConfig`（Swift Dictionary）原在后台线程读取、主线程写入，数据竞争导致崩溃；改为主线程快照 → 后台端口探测 → 主线程更新 UI
 - **菜单逻辑错误**：菜单栏"启用/停用背景"原错绑为切换文字自动配色，已修正
+
+## v1.0.1 更新
+
+- **守护进程看门狗**：首次成功连接 CDP 后启用看门狗，检测到 WorkBuddy 进程持续退出超过宽限期（25s）则守护进程自动退出，修复"WorkBuddy 退出后注入进程卡死不退出"问题
+- **一键停止注入**：管理器新增"停止CDP注入"按钮，点击弹出"WorkBuddy程序将退出"确认框，确认后停止注入并安全退出 WorkBuddy 与守护进程（底层 `POST /api/stop-injection`：移除注入脚本 + `Browser.close` 关闭 WorkBuddy + 优雅退出守护进程）
+- **配置有效性修复**：背景暗色遮罩、图片填充/位置等设置此前不生效，现已通过容器透明度排除规则与 `--wb-bg-size/--wb-bg-pos` 变量修正，全部开关实时生效
+- **深度思考区排版**：思维链区域最大高度由 200px 放宽至 `min(60vh, 720px)` 并支持双向滚动，长内容不再被截断
 
 ## 技术架构
 

@@ -52,7 +52,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     var window: NSWindow!; var statusItem: NSStatusItem!
     var wbCard: StatusCard!, cdpCard: StatusCard!, daemonCard: StatusCard!, bgCard: StatusCard!
-    var startButton: NSButton!, injectButton: NSButton!
+    var startButton: NSButton!, injectButton: NSButton!, stopButton: NSButton!
     var selectFileButton: NSButton!, clearButton: NSButton!
     var autoTextBtn: NSButton!, textColorWell: NSColorWell!
     var autoTextOn = true
@@ -127,7 +127,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ])
 
         // ── 标题
-        let titleLabel = NSTextField(labelWithString: "WorkBuddy-Skin 背景注入管理器 v1.0.0")
+        let titleLabel = NSTextField(labelWithString: "WorkBuddy-Skin 背景注入管理器 v1.0.1")
         titleLabel.font = NSFont.boldSystemFont(ofSize: 22); titleLabel.textColor = .textTitle; titleLabel.alignment = .center
         main.addArrangedSubview(titleLabel)
         main.setCustomSpacing(24, after: titleLabel)
@@ -223,6 +223,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             makeBtn("刷新状态", "arrow.clockwise", #selector(refreshStatus))
         ], equalWidth: true)
         main.addArrangedSubview(qRow)
+
+        // 停止 CDP 注入（危险操作，独立成行）
+        let stopRow = hstack([
+            { stopButton = $0; return $0 }(makeBtn("停止CDP注入", "xmark.circle.fill", #selector(stopInjection)))
+        ], equalWidth: true)
+        main.addArrangedSubview(stopRow)
 
         // ══ 状态监测 ══
         main.setCustomSpacing(20, after: qRow)
@@ -401,6 +407,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             var w = 0; while w < 30 { Thread.sleep(forTimeInterval: 1); w += 1; if self.checkPort(9222) { break } }
             DispatchQueue.main.async { self.injectButton.isEnabled = true; self.injectButton.title = "CDP 注入启动"; self.refreshStatus() }
         }
+    }
+    @objc func stopInjection() {
+        let alert = NSAlert()
+        alert.messageText = "WorkBuddy程序将退出"
+        alert.informativeText = "停止 CDP 注入后，WorkBuddy 将关闭，背景注入守护进程也会一并退出。"
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "取消")
+        alert.addButton(withTitle: "停止并退出")
+        if alert.runModal() == .alertSecondButtonReturn {
+            callStopInjection()
+            // 兜底：直接让 WorkBuddy 退出（覆盖守护进程未连接的情况）
+            DispatchQueue.global().async {
+                let q = Process(); q.launchPath = "/usr/bin/osascript"; q.arguments = ["-e", "tell application \"WorkBuddy\" to quit"]
+                q.standardOutput = FileHandle.nullDevice; q.standardError = FileHandle.nullDevice; q.launch(); q.waitUntilExit()
+            }
+            stopButton.title = "已停止"; stopButton.isEnabled = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { self.refreshStatus(); self.updateMenuStatus() }
+        }
+    }
+    func callStopInjection() {
+        guard let u = URL(string: "\(daemonURL)/api/stop-injection") else { return }
+        var r = URLRequest(url: u); r.httpMethod = "POST"
+        URLSession.shared.dataTask(with: r).resume()
     }
     @objc func refreshStatus() {
         // 同样的线程安全修复：主线程快照配置，后台仅探测端口

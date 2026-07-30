@@ -1091,6 +1091,8 @@ async function connectCDP() {
     });
 
     reconnectAttempts = 0; // 重置重连计数
+    cdpEverConnected = true; // 看门狗仅在首次成功连接后启用
+    startWatchdog();
 
     cdpClient.on('disconnected', () => {
       log('cdp', '连接断开，开始重连...');
@@ -1145,6 +1147,7 @@ async function pushConfigToPage() {
 }
 
 function scheduleReconnect() {
+  if (stopping) return; // 停止注入期间不再重连
   if (reconnectTimer) clearTimeout(reconnectTimer);
   reconnectAttempts++;
   // 指数退避：5s, 10s, 20s, 40s, 最大 60s
@@ -1154,6 +1157,68 @@ function scheduleReconnect() {
     const ok = await connectCDP();
     if (!ok) scheduleReconnect();
   }, delay);
+}
+
+// ─── 看门狗：WorkBuddy 退出后守护进程自动退出 ──────────────
+// 仅首次成功连接 CDP 后启用；若检测到 WorkBuddy 进程持续缺失超过宽限期，则优雅退出。
+// 修复：WorkBuddy 进程退出后，注入守护进程卡死不会退出。
+let cdpEverConnected = false;
+let watchdogTimer = null;
+let workbuddyAbsentSince = null;
+let stopping = false; // 停止注入标志：阻止重连与看门狗/退出的竞争
+const WATCHDOG_INTERVAL_MS = 5000;
+const WATCHDOG_GRACE_MS = 25000; // WorkBuddy 重启/升级时也算缺失，给足宽限
+
+const { exec } = require('child_process');
+
+// 判断 WorkBuddy 是否还在运行（Electron 二进制路径，避开 Skin 自身路径）
+function isWorkBuddyRunning(cb) {
+  if (process.platform === 'win32') {
+    exec('powershell -NoProfile -Command "Get-Process -Name WorkBuddy -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Id"',
+      (err, stdout) => cb(!err && stdout.trim().length > 0));
+  } else {
+    exec('pgrep -f "WorkBuddy.app/Contents/MacOS"',
+      (err, stdout) => cb(!err && stdout.trim().length > 0));
+  }
+}
+
+function startWatchdog() {
+  if (watchdogTimer || !cdpEverConnected) return;
+  log('watchdog', '看门狗已启用（WorkBuddy 退出后将自动退出守护进程）');
+  watchdogTimer = setInterval(() => {
+    if (stopping) return;
+    if (cdpClient) { workbuddyAbsentSince = null; return; } // 已连接，正常
+    isWorkBuddyRunning((running) => {
+      if (running) { workbuddyAbsentSince = null; return; }
+      const now = Date.now();
+      if (workbuddyAbsentSince === null) workbuddyAbsentSince = now;
+      const absentMs = now - workbuddyAbsentSince;
+      if (absentMs >= WATCHDOG_GRACE_MS) {
+        log('watchdog', `WorkBuddy 已退出超过 ${WATCHDOG_GRACE_MS / 1000}s，守护进程自动退出`);
+        gracefulShutdown('WorkBuddy 进程已退出');
+      } else {
+        log('watchdog', `WorkBuddy 进程缺失 ${Math.round(absentMs / 1000)}s（宽限 ${WATCHDOG_GRACE_MS / 1000}s）`);
+      }
+    });
+  }, WATCHDOG_INTERVAL_MS);
+}
+
+// 优雅关闭：停掉所有定时器、清理注入、移除 PID、退出进程
+function gracefulShutdown(reason) {
+  if (stopping === 'done') return; // 防止重复退出
+  stopping = 'done';
+  log('daemon', `优雅关闭：${reason || '请求停止'}`);
+  if (watchdogTimer) { clearInterval(watchdogTimer); watchdogTimer = null; }
+  if (configPushTimer) { clearInterval(configPushTimer); configPushTimer = null; }
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  try {
+    if (cdpClient) {
+      try { if (injectScriptId) cdpClient.Page.removeScriptToEvaluateOnNewDocument({ identifier: injectScriptId }); } catch {}
+      try { cdpClient.close(); } catch {}
+    }
+  } catch {}
+  try { if (fs.existsSync(PID_PATH)) fs.unlinkSync(PID_PATH); } catch {}
+  setTimeout(() => { process.exit(0); }, 300);
 }
 
 // ─── HTTP 服务器 ─────────────────────────────────────────
@@ -1427,6 +1492,28 @@ server = http.createServer(async (req, res) => {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: false, error: e.message }));
     }
+    return;
+  }
+
+  // POST /api/stop-injection → 停止 CDP 注入，关闭 WorkBuddy，退出守护进程
+  if (pathname === '/api/stop-injection' && req.method === 'POST') {
+    stopping = true;
+    log('api', '收到停止 CDP 注入请求');
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, message: '已停止注入，WorkBuddy 将退出' }));
+
+    // 先回响应，再异步清理（移除注入脚本 + 关闭 WorkBuddy + 退出守护进程）
+    (async () => {
+      try {
+        if (cdpClient) {
+          try { if (injectScriptId) await cdpClient.Page.removeScriptToEvaluateOnNewDocument({ identifier: injectScriptId }); } catch {}
+          try { await cdpClient.Runtime.evaluate({ expression: 'if (window.__wbBgCleanup) window.__wbBgCleanup();' }); } catch {}
+          try { if (cdpClient.Browser && cdpClient.Browser.close) await cdpClient.Browser.close(); } catch {}
+          try { cdpClient.close(); } catch {}
+        }
+      } catch {}
+      gracefulShutdown('用户停止注入');
+    })();
     return;
   }
 

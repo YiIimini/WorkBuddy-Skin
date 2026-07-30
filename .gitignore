@@ -6,3 +6,7 @@ daemon.log
 daemon.pid
 dist/
 node_modules/
+
+# macOS 元数据
+.DS_Store
+assets/.DS_Store

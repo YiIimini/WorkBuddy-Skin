@@ -1,10 +1,22 @@
-# WorkBuddy-Skin v1.0.0 Release Notes
+# WorkBuddy-Skin v1.0.1 Release Notes
 
 ## 发布日期
-2026-07-30
+2026-07-31
 
 ## 下载
-**DMG：** [WorkBuddy-Skin-v1.0.0.dmg](../../releases/download/v1.0.0/WorkBuddy-Skin-v1.0.0.dmg)
+**DMG：** [WorkBuddy-Skin-v1.0.1.dmg](../../releases/download/v1.0.1/WorkBuddy-Skin-v1.0.1.dmg)
+
+## v1.0.1 更新
+
+### 稳定性与生命周期
+- **守护进程看门狗**：首次成功连接 CDP 后启用，检测 WorkBuddy 进程持续退出超过宽限期（25s）则守护进程自动退出 —— 修复"WorkBuddy 进程退出后，注入守护进程卡死不会退出"的问题
+- **一键停止注入**：管理器新增"停止CDP注入"按钮，点击弹出"WorkBuddy程序将退出"确认框，确认后停止注入并安全退出 WorkBuddy 与守护进程
+  - 底层 `POST /api/stop-injection`：移除 `addScriptToEvaluateOnNewDocument` 注入脚本 → 调用 `Browser.close()` 关闭 WorkBuddy → 优雅清理定时器/PID 并退出守护进程
+  - Swift 侧同步兜底 `osascript 'tell application "WorkBuddy" to quit'`，覆盖守护进程未连接的情况
+
+### 配置有效性修复
+- **背景暗色遮罩/图片填充/位置此前无效**：根因是容器 `div{background:transparent!important}` 覆盖了内联遮罩，且图片填充/位置被硬编码 —— 现通过排除 `#wb-bg-layer`/`#wb-bg-overlay` 的透明度规则 + `--wb-bg-size`/`--wb-bg-pos` 变量修正，全部开关实时生效
+- **深度思考区排版截断**：思维链区域 `max-height:200px` 封顶裁剪 → 改为 `min(60vh, 720px)` 并支持双向滚动，长内容完整可见
 
 ## v1.0.0 更新
 
