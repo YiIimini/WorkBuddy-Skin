@@ -233,7 +233,6 @@ class SysDetailPanel: NSPanel {
     let valueLabel = NSTextField(labelWithString: "")
     let detailStack = NSStackView()
     var actionButtons: [NSButton] = []
-    var fitted = false
     var onAuthorizeGPU: (() -> Void)?
     var onStopGPU: (() -> Void)?
     var onCleanJunk: (() -> Void)?
@@ -242,7 +241,15 @@ class SysDetailPanel: NSPanel {
 
     init(kind: MetricKind) {
         self.kind = kind
-        super.init(contentRect: NSRect(x: 0, y: 0, width: 460, height: 360), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        let contentH: CGFloat
+        switch kind {
+        case .cpu: contentH = 340
+        case .ram: contentH = 400
+        case .gpu: contentH = 340
+        case .ssd: contentH = 300
+        case .net: contentH = 280
+        }
+        super.init(contentRect: NSRect(x: 0, y: 0, width: 460, height: contentH), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         self.title = "系统监测 · \(kind.rawValue)"
         self.appearance = NSAppearance(named: .darkAqua)
         self.isMovableByWindowBackground = true
@@ -321,16 +328,6 @@ class SysDetailPanel: NSPanel {
         }
         if kind == .gpu {
             actionButtons.first?.title = gpuAuthorized ? "停止 GPU 监测" : "授权 GPU 监测"
-        }
-        if !fitted {
-            fitted = true
-            self.layoutIfNeeded()
-            var bottom = detailStack.frame.maxY
-            if !actionButtons.isEmpty { bottom += 18 + 34 }
-            bottom += 24
-            let h = max(220, ceil(bottom))
-            let cx = self.frame.midX, cy = self.frame.midY
-            self.setFrame(NSRect(x: cx - self.frame.width/2, y: cy - h/2, width: self.frame.width, height: h), display: true)
         }
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -936,7 +933,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         detailPanel = panel
         if let w = window {
             let cx = w.frame.midX, cy = w.frame.midY
-            panel.setFrame(NSRect(x: cx - 230, y: cy - 180, width: 460, height: 360), display: true)
+            let size = panel.frame.size
+            panel.setFrame(NSRect(x: cx - size.width/2, y: cy - size.height/2, width: size.width, height: size.height), display: true)
             w.addChildWindow(panel, ordered: .above)
         }
         panel.makeKeyAndOrderFront(nil)
