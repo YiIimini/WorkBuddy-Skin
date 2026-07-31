@@ -270,38 +270,35 @@ class SysDetailPanel: NSPanel {
             b.translatesAutoresizingMaskIntoConstraints = false
             return b
         }
+        let buttonRow: NSView
         switch kind {
         case .gpu:
-            actionButtons.append(makeBtn("授权 GPU 监测", #selector(gpuClicked)))
+            let b = makeBtn("授权 GPU 监测", #selector(gpuClicked))
+            actionButtons.append(b)
+            buttonRow = b
         case .ram:
-            actionButtons.append(makeBtn("清理垃圾", #selector(cleanClicked)))
-            actionButtons.append(makeBtn("进程管理", #selector(procClicked)))
-        default: break
+            let b1 = makeBtn("清理垃圾", #selector(cleanClicked))
+            let b2 = makeBtn("进程管理", #selector(procClicked))
+            actionButtons.append(b1); actionButtons.append(b2)
+            let h = NSStackView(views: [b1, b2])
+            h.orientation = .horizontal; h.spacing = 14; h.distribution = .fillEqually
+            h.translatesAutoresizingMaskIntoConstraints = false
+            buttonRow = h
+        default:
+            buttonRow = NSView()
         }
-        for b in actionButtons { root.addSubview(b) }
+        root.addSubview(buttonRow)
 
-        let closeBtn = NSButton(title: "关闭", target: self, action: #selector(closeClicked))
-        closeBtn.bezelStyle = .rounded
-        closeBtn.translatesAutoresizingMaskIntoConstraints = false
-        root.addSubview(closeBtn)
-
-        var cons: [NSLayoutConstraint] = [
+        NSLayoutConstraint.activate([
             valueLabel.topAnchor.constraint(equalTo: root.topAnchor, constant: 54),
             valueLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 20),
             valueLabel.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -20),
             detailStack.topAnchor.constraint(equalTo: valueLabel.bottomAnchor, constant: 18),
             detailStack.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 24),
             detailStack.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24),
-            closeBtn.centerXAnchor.constraint(equalTo: root.centerXAnchor)
-        ]
-        var prev: NSView? = detailStack
-        for b in actionButtons {
-            cons.append(b.topAnchor.constraint(equalTo: prev!.bottomAnchor, constant: 10))
-            cons.append(b.centerXAnchor.constraint(equalTo: root.centerXAnchor))
-            prev = b
-        }
-        cons.append(closeBtn.topAnchor.constraint(equalTo: prev!.bottomAnchor, constant: 16))
-        NSLayoutConstraint.activate(cons)
+            buttonRow.topAnchor.constraint(equalTo: detailStack.bottomAnchor, constant: 18),
+            buttonRow.centerXAnchor.constraint(equalTo: root.centerXAnchor)
+        ])
     }
     override func close() { onClose?(); super.close() }
     @objc func gpuClicked() {
@@ -309,7 +306,6 @@ class SysDetailPanel: NSPanel {
     }
     @objc func cleanClicked() { onCleanJunk?() }
     @objc func procClicked() { onManageProcesses?() }
-    @objc func closeClicked() { onClose?() }
     func setValue(_ value: String, details: [String], gpuAuthorized: Bool) {
         valueLabel.stringValue = value
         detailStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
@@ -327,6 +323,147 @@ class SysDetailPanel: NSPanel {
         }
     }
     required init?(coder: NSCoder) { fatalError() }
+}
+
+struct JunkItem {
+    let name: String
+    let path: String?   // nil 表示特殊项（废纸篓）
+}
+
+class JunkCleanerPanel: NSPanel {
+    let items: [JunkItem] = [
+        JunkItem(name: "用户缓存 (~/Library/Caches)", path: "~/Library/Caches"),
+        JunkItem(name: "应用日志 (~/Library/Logs)", path: "~/Library/Logs"),
+        JunkItem(name: "诊断报告 (~/Library/Logs/DiagnosticReports)", path: "~/Library/Logs/DiagnosticReports"),
+        JunkItem(name: "废纸篓 (清空)", path: nil)
+    ]
+    var checks: [NSButton] = []
+    var sizeLabels: [NSTextField] = []
+    let totalLabel = NSTextField(labelWithString: "共可清理：—")
+    let list = NSStackView()
+    let scroll = NSScrollView()
+    var onClose: (() -> Void)?
+
+    func expand(_ p: String) -> String {
+        p.hasPrefix("~") ? (NSHomeDirectory() + String(p.dropFirst())) : p
+    }
+    func human(_ bytes: Double) -> String {
+        if bytes > 1e9 { return String(format: "%.2f GB", bytes/1e9) }
+        if bytes > 1e6 { return String(format: "%.1f MB", bytes/1e6) }
+        if bytes > 1e3 { return String(format: "%.1f KB", bytes/1e3) }
+        return "\(Int(bytes)) B"
+    }
+
+    init() {
+        super.init(contentRect: NSRect(x: 0, y: 0, width: 480, height: 440), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        self.title = "清理系统垃圾"
+        self.appearance = NSAppearance(named: .darkAqua)
+        self.isMovableByWindowBackground = true
+        self.level = .floating
+        self.backgroundColor = NSColor(srgbRed: 0.10, green: 0.06, blue: 0.15, alpha: 0.97)
+        self.isReleasedWhenClosed = false
+
+        let root = NSView(); self.contentView = root
+
+        let title = NSTextField(labelWithString: "扫描并勾选要清理的系统垃圾")
+        title.font = .boldSystemFont(ofSize: 14); title.textColor = .textBody; title.alignment = .center
+        title.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(title)
+
+        totalLabel.font = .systemFont(ofSize: 12); totalLabel.textColor = .accentPink; totalLabel.alignment = .center
+        totalLabel.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(totalLabel)
+
+        let scanBtn = NSButton(title: "扫描垃圾", target: self, action: #selector(scan))
+        scanBtn.bezelStyle = .rounded; scanBtn.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(scanBtn)
+
+        list.orientation = .vertical; list.spacing = 8; list.alignment = .leading
+        list.translatesAutoresizingMaskIntoConstraints = false
+        scroll.documentView = list
+        scroll.hasVerticalScroller = true; scroll.autohidesScrollers = true
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(scroll)
+
+        for it in items {
+            let row = NSStackView(); row.orientation = .horizontal; row.spacing = 10
+            let chk = NSButton(checkboxWithTitle: "", target: nil, action: nil); chk.state = .on
+            chk.translatesAutoresizingMaskIntoConstraints = false
+            let name = NSTextField(labelWithString: it.name); name.font = .systemFont(ofSize: 12); name.textColor = .textBody
+            name.translatesAutoresizingMaskIntoConstraints = false
+            let size = NSTextField(labelWithString: "—"); size.font = .systemFont(ofSize: 11); size.textColor = .textHint; size.alignment = .right
+            size.translatesAutoresizingMaskIntoConstraints = false
+            row.addArrangedSubview(chk); row.addArrangedSubview(name); row.addArrangedSubview(size)
+            name.setContentHuggingPriority(.defaultLow, for: .horizontal)
+            size.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+            size.widthAnchor.constraint(equalToConstant: 90).isActive = true
+            checks.append(chk); sizeLabels.append(size)
+            list.addArrangedSubview(row)
+        }
+
+        let cleanBtn = NSButton(title: "清理选中", target: self, action: #selector(clean))
+        cleanBtn.bezelStyle = .rounded; cleanBtn.keyEquivalent = "\r"
+        cleanBtn.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(cleanBtn)
+        let closeBtn = NSButton(title: "关闭", target: self, action: #selector(closeClicked))
+        closeBtn.bezelStyle = .rounded
+        closeBtn.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(closeBtn)
+
+        NSLayoutConstraint.activate([
+            title.topAnchor.constraint(equalTo: root.topAnchor, constant: 16),
+            title.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16),
+            title.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16),
+
+            scanBtn.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 12),
+            scanBtn.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16),
+            totalLabel.centerYAnchor.constraint(equalTo: scanBtn.centerYAnchor),
+            totalLabel.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16),
+
+            scroll.topAnchor.constraint(equalTo: scanBtn.bottomAnchor, constant: 12),
+            scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16),
+            scroll.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16),
+            scroll.bottomAnchor.constraint(equalTo: cleanBtn.topAnchor, constant: -12),
+
+            cleanBtn.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -16),
+            cleanBtn.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16),
+            closeBtn.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -16),
+            closeBtn.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16)
+        ])
+    }
+    override func close() { onClose?(); super.close() }
+    @objc func closeClicked() { onClose?() }
+    @objc func scan() {
+        var total: Double = 0
+        for (i, it) in items.enumerated() {
+            guard let p = it.path else { sizeLabels[i].stringValue = "(点击清理时清空)"; continue }
+            let full = expand(p)
+            if let out = runCmd("/usr/bin/du", ["-sk", full]), let kb = Double(out.trimmingCharacters(in: .whitespaces).components(separatedBy: "\t").first ?? "") {
+                let bytes = kb * 1024
+                sizeLabels[i].stringValue = human(bytes)
+                total += bytes
+            } else {
+                sizeLabels[i].stringValue = "无法访问"
+            }
+        }
+        totalLabel.stringValue = "共可清理：\(human(total))"
+    }
+    @objc func clean() {
+        var targets: [JunkItem] = []
+        for (i, it) in items.enumerated() where checks[i].state == .on { targets.append(it) }
+        if targets.isEmpty { return }
+        let a = NSAlert()
+        a.messageText = "确认清理"
+        a.informativeText = "将删除选中的 \(targets.count) 类系统垃圾，操作不可撤销。是否继续？"
+        a.alertStyle = .warning
+        a.addButton(withTitle: "清理"); a.addButton(withTitle: "取消")
+        if a.runModal() != .alertFirstButtonReturn { return }
+        for it in targets {
+            if let p = it.path {
+                let full = expand(p)
+                _ = runCmd("/bin/sh", ["-c", "rm -rf \"\(full)\"/* 2>/dev/null; rm -rf \"\(full)\"/.[!.]* 2>/dev/null"])
+            } else {
+                _ = runCmd("/usr/bin/osascript", ["-e", "tell application \"Finder\" to empty the trash"])
+            }
+        }
+        scan()
+        let done = NSAlert(); done.messageText = "清理完成"; done.informativeText = "已清理选中的系统垃圾。"; done.runModal()
+    }
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -351,6 +488,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let sysMonitor = SystemMonitor()
     var sysTiles: [MetricKind: SysTile] = [:]
     var detailPanel: SysDetailPanel?
+    var junkPanel: JunkCleanerPanel?
+    var quitButton: NSButton!
     var gpuAuthorized = false
     var lastCPU: (total: Double, user: Double, system: Double, nice: Double) = (0,0,0,0)
     var lastMem: (usedGB: Double, totalGB: Double, wiredGB: Double, compressedGB: Double) = (0,0,0,0)
@@ -524,6 +663,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             { stopButton = $0; return $0 }(makeBtn("停止CDP注入", "xmark.circle.fill", #selector(stopInjection)))
         ], equalWidth: true)
         main.addArrangedSubview(stopRow)
+
+        // 退出应用（独立成行）
+        let quitRow = hstack([
+            { quitButton = $0; return $0 }(makeBtn("退出应用", "power", #selector(quitApp)))
+        ], equalWidth: true)
+        main.addArrangedSubview(quitRow)
 
         // ══ 状态监测 ══
         main.setCustomSpacing(20, after: qRow)
@@ -779,7 +924,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let panel = SysDetailPanel(kind: kind)
         panel.onAuthorizeGPU = { [weak self] in self?.authorizeGPU() }
         panel.onStopGPU = { [weak self] in self?.stopGPU() }
-        panel.onCleanJunk = { [weak self] in self?.cleanJunk() }
+        panel.onCleanJunk = { [weak self] in self?.openJunkCleaner() }
         panel.onManageProcesses = { [weak self] in self?.openProcessManager() }
         panel.onClose = { [weak self] in self?.closeDetail() }
         detailPanel = panel
@@ -855,8 +1000,39 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                  "授权仅需一次，数据将持续刷新。"])
         }
     }
+    func gpuPlistPath() -> String { "/Library/LaunchDaemons/com.workbuddy.gpu.plist" }
+    func writeGpuPlist() {
+        let plist = """
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.workbuddy.gpu</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/sbin/powermetrics</string>
+        <string>-s</string>
+        <string>gpu</string>
+        <string>-i</string>
+        <string>1000</string>
+        <string>-n</string>
+        <string>0</string>
+    </array>
+    <key>StandardOutPath</key>
+    <string>/tmp/wb_gpu.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/wb_gpu.log</string>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>
+"""
+        try? plist.write(toFile: "/tmp/com.workbuddy.gpu.plist", atomically: true, encoding: .utf8)
+    }
     func authorizeGPU() {
-        let script = "do shell script \"nohup powermetrics -s gpu -i 1000 -n 0 > /tmp/wb_gpu.log 2>&1 &\" with administrator privileges"
+        writeGpuPlist()
+        let script = "do shell script \"cp /tmp/com.workbuddy.gpu.plist '\(gpuPlistPath())'; launchctl load -w '\(gpuPlistPath())'\" with administrator privileges"
         var err: NSDictionary?
         NSAppleScript(source: script)?.executeAndReturnError(&err)
         if err == nil {
@@ -864,45 +1040,53 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             sysTiles[.gpu]?.update("…")
             if let panel = detailPanel, panel.kind == .gpu { updateDetailContent(.gpu) }
         } else {
-            let a = NSAlert(); a.messageText = "GPU 授权失败"; a.informativeText = "无法以管理员权限启动 powermetrics。"; a.runModal()
+            let a = NSAlert(); a.messageText = "GPU 授权失败"; a.informativeText = "无法以管理员权限启动 powermetrics（\(err?.description ?? "未知错误")），请重试或在终端手动运行。"; a.runModal()
         }
     }
     func stopGPU() {
-        _ = runCmd("/usr/bin/pkill", ["-f", "powermetrics -s gpu"])
+        let script = "do shell script \"launchctl unload -w '\(gpuPlistPath())' 2>/dev/null; rm -f '\(gpuPlistPath())'\" with administrator privileges"
+        var err: NSDictionary?
+        NSAppleScript(source: script)?.executeAndReturnError(&err)
         gpuAuthorized = false
         try? FileManager.default.removeItem(atPath: "/tmp/wb_gpu.log")
         sysTiles[.gpu]?.update("需授权")
         if let panel = detailPanel, panel.kind == .gpu { updateDetailContent(.gpu) }
     }
-    func cleanJunk() {
-        let a = NSAlert()
-        a.messageText = "清理垃圾"
-        a.informativeText = "将清空废纸篓并刷新系统 DNS 缓存。是否继续？"
-        a.alertStyle = .warning
-        a.addButton(withTitle: "清理")
-        a.addButton(withTitle: "取消")
-        if a.runModal() == .alertFirstButtonReturn {
-            _ = runCmd("/usr/bin/osascript", ["-e", "tell application \"Finder\" to empty the trash"])
-            _ = runCmd("/usr/bin/dscacheutil", ["-flushcache"])
-            let done = NSAlert(); done.messageText = "已完成"; done.informativeText = "已清空废纸篓并刷新 DNS 缓存。"; done.runModal()
+    func openJunkCleaner() {
+        let panel = JunkCleanerPanel()
+        panel.onClose = { [weak self] in
+            if let p = self?.junkPanel { self?.window?.removeChildWindow(p) }
+            self?.junkPanel = nil
         }
+        junkPanel = panel
+        if let w = window {
+            let cx = w.frame.midX, cy = w.frame.midY
+            panel.setFrame(NSRect(x: cx - 240, y: cy - 220, width: 480, height: 440), display: true)
+            w.addChildWindow(panel, ordered: .above)
+        }
+        panel.makeKeyAndOrderFront(nil)
     }
     func openProcessManager() {
         _ = runCmd("/usr/bin/open", ["-a", "Activity Monitor"])
     }
+    @objc func quitApp() {
+        let a = NSAlert()
+        a.messageText = "退出 WorkBuddy-Skin"
+        a.informativeText = "将彻底结束 WorkBuddy-Skin 应用进程。是否继续？"
+        a.alertStyle = .warning
+        a.addButton(withTitle: "退出"); a.addButton(withTitle: "取消")
+        if a.runModal() == .alertFirstButtonReturn { NSApp.terminate(nil) }
+    }
     func readGpuValue() -> Double? {
         guard let s = try? String(contentsOfFile: "/tmp/wb_gpu.log", encoding: .utf8), !s.isEmpty else { return nil }
-        let blocks = s.components(separatedBy: "====")
-        let block = blocks.last ?? s
-        func parsePercent(_ pattern: String) -> Double? {
+        func parseLast(_ pattern: String) -> Double? {
             guard let r = try? NSRegularExpression(pattern: pattern, options: []),
-                  let m = r.firstMatch(in: block, options: [], range: NSRange(location: 0, length: block.utf16.count)) else { return nil }
-            let ns = block as NSString
-            let num = ns.substring(with: m.range(at: 1))
+                  let m = r.matches(in: s, options: [], range: NSRange(location: 0, length: s.utf16.count)).last else { return nil }
+            let num = (s as NSString).substring(with: m.range(at: 1))
             return Double(num)
         }
-        return parsePercent(#"GPU\s+(?:HW\s+)?Active[^%\n]*?(\d+(?:\.\d+)?)\s*%"#)
-            ?? parsePercent(#"GPU[^%\n]*?(\d+(?:\.\d+)?)\s*%"#)
+        return parseLast(#"GPU\s+(?:HW\s+)?Active[^%\n]*?(\d+(?:\.\d+)?)\s*%"#)
+            ?? parseLast(#"GPU[^%\n]*?(\d+(?:\.\d+)?)\s*%"#)
     }
 
     @objc func selectFile() {
