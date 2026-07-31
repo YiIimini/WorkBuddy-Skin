@@ -632,14 +632,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ], equalWidth: true)
         main.addArrangedSubview(fileRow)
 
-        // 预览
+        // 预览（限宽限高，避免窗口拉大后预览区过大）
         previewView = NSView(); previewView.wantsLayer = true
         previewView.layer?.backgroundColor = NSColor(srgbRed: 0.08, green: 0.05, blue: 0.12, alpha: 0.5).cgColor; previewView.layer?.cornerRadius = 10
         previewView.layer?.borderWidth = 1; previewView.layer?.borderColor = NSColor.accentPink.withAlphaComponent(0.12).cgColor
-        previewView.heightAnchor.constraint(greaterThanOrEqualToConstant: 50).isActive = true
-        // 窗口拉高时让预览区吸收多余高度（stack 内 hugging 最低的被拉伸）
-        previewView.setContentHuggingPriority(.init(10), for: .vertical)
-        main.addArrangedSubview(previewView)
+        previewView.translatesAutoresizingMaskIntoConstraints = false
+        let previewWrap = NSView(); previewWrap.translatesAutoresizingMaskIntoConstraints = false
+        previewWrap.addSubview(previewView)
+        let previewWidthEq = previewView.widthAnchor.constraint(equalTo: previewWrap.widthAnchor)
+        previewWidthEq.priority = .defaultHigh
+        NSLayoutConstraint.activate([
+            previewView.centerXAnchor.constraint(equalTo: previewWrap.centerXAnchor),
+            previewView.topAnchor.constraint(equalTo: previewWrap.topAnchor),
+            previewView.bottomAnchor.constraint(equalTo: previewWrap.bottomAnchor),
+            previewWidthEq,
+            previewView.widthAnchor.constraint(lessThanOrEqualToConstant: 560),
+            previewView.heightAnchor.constraint(greaterThanOrEqualToConstant: 50),
+            previewView.heightAnchor.constraint(lessThanOrEqualToConstant: 220)
+        ])
+        main.addArrangedSubview(previewWrap)
         previewImageView = NSImageView(); previewImageView.imageScaling = .scaleProportionallyUpOrDown
         previewImageView.imageAlignment = .alignCenter; previewImageView.isHidden = true
         previewImageView.translatesAutoresizingMaskIntoConstraints = false
@@ -753,6 +764,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         fa.addAttribute(.foregroundColor, value: NSColor.textHint, range: NSRange(location: 0, length: fa.length))
         footer.attributedStringValue = fa; footer.allowsEditingTextAttributes = true; footer.isSelectable = true
         main.addArrangedSubview(footer)
+
+        // 弹性留白：窗口拉高时吸收多余高度，避免拉伸其他控件
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.init(1), for: .vertical)
+        main.addArrangedSubview(spacer)
     }
 
     // ══ UI helpers ══
