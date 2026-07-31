@@ -232,14 +232,16 @@ class SysDetailPanel: NSPanel {
     let kind: MetricKind
     let valueLabel = NSTextField(labelWithString: "")
     let detailStack = NSStackView()
-    let extraButton = NSButton()
+    var actionButtons: [NSButton] = []
     var onAuthorizeGPU: (() -> Void)?
     var onStopGPU: (() -> Void)?
+    var onCleanJunk: (() -> Void)?
+    var onManageProcesses: (() -> Void)?
     var onClose: (() -> Void)?
 
     init(kind: MetricKind) {
         self.kind = kind
-        super.init(contentRect: NSRect(x: 0, y: 0, width: 460, height: 340), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        super.init(contentRect: NSRect(x: 0, y: 0, width: 460, height: 360), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         self.title = "系统监测 · \(kind.rawValue)"
         self.appearance = NSAppearance(named: .darkAqua)
         self.isMovableByWindowBackground = true
@@ -257,57 +259,71 @@ class SysDetailPanel: NSPanel {
 
         detailStack.orientation = .vertical
         detailStack.spacing = 8
-        detailStack.alignment = .leading
+        detailStack.alignment = .centerX
         detailStack.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(detailStack)
 
-        extraButton.bezelStyle = .rounded
-        extraButton.font = NSFont.systemFont(ofSize: 12, weight: .medium)
-        extraButton.translatesAutoresizingMaskIntoConstraints = false
-        extraButton.target = self; extraButton.action = #selector(extraClicked)
-        root.addSubview(extraButton)
+        func makeBtn(_ title: String, _ action: Selector) -> NSButton {
+            let b = NSButton(title: title, target: self, action: action)
+            b.bezelStyle = .rounded
+            b.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+            b.translatesAutoresizingMaskIntoConstraints = false
+            return b
+        }
+        switch kind {
+        case .gpu:
+            actionButtons.append(makeBtn("授权 GPU 监测", #selector(gpuClicked)))
+        case .ram:
+            actionButtons.append(makeBtn("清理垃圾", #selector(cleanClicked)))
+            actionButtons.append(makeBtn("进程管理", #selector(procClicked)))
+        default: break
+        }
+        for b in actionButtons { root.addSubview(b) }
 
         let closeBtn = NSButton(title: "关闭", target: self, action: #selector(closeClicked))
         closeBtn.bezelStyle = .rounded
         closeBtn.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(closeBtn)
 
-        NSLayoutConstraint.activate([
-            valueLabel.topAnchor.constraint(equalTo: root.topAnchor, constant: 56),
+        var cons: [NSLayoutConstraint] = [
+            valueLabel.topAnchor.constraint(equalTo: root.topAnchor, constant: 54),
             valueLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 20),
             valueLabel.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -20),
             detailStack.topAnchor.constraint(equalTo: valueLabel.bottomAnchor, constant: 18),
             detailStack.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 24),
             detailStack.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24),
-            extraButton.topAnchor.constraint(equalTo: detailStack.bottomAnchor, constant: 18),
-            extraButton.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 24),
-            closeBtn.topAnchor.constraint(equalTo: detailStack.bottomAnchor, constant: 18),
-            closeBtn.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24)
-        ])
+            closeBtn.centerXAnchor.constraint(equalTo: root.centerXAnchor)
+        ]
+        var prev: NSView? = detailStack
+        for b in actionButtons {
+            cons.append(b.topAnchor.constraint(equalTo: prev!.bottomAnchor, constant: 10))
+            cons.append(b.centerXAnchor.constraint(equalTo: root.centerXAnchor))
+            prev = b
+        }
+        cons.append(closeBtn.topAnchor.constraint(equalTo: prev!.bottomAnchor, constant: 16))
+        NSLayoutConstraint.activate(cons)
     }
     override func close() { onClose?(); super.close() }
-    @objc func extraClicked() {
-        if extraButton.title.contains("授权") { onAuthorizeGPU?() }
-        else { onStopGPU?() }
+    @objc func gpuClicked() {
+        if actionButtons.first?.title.contains("授权") == true { onAuthorizeGPU?() } else { onStopGPU?() }
     }
+    @objc func cleanClicked() { onCleanJunk?() }
+    @objc func procClicked() { onManageProcesses?() }
     @objc func closeClicked() { onClose?() }
-    func setValue(_ value: String, details: [String], needsAuth: Bool, authorized: Bool) {
+    func setValue(_ value: String, details: [String], gpuAuthorized: Bool) {
         valueLabel.stringValue = value
         detailStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         for d in details {
             let t = NSTextField(labelWithString: d)
             t.font = NSFont.systemFont(ofSize: 12)
             t.textColor = .textBody
+            t.alignment = .center
             t.lineBreakMode = .byWordWrapping
             t.preferredMaxLayoutWidth = 412
             detailStack.addArrangedSubview(t)
         }
-        if needsAuth {
-            extraButton.title = "授权 GPU 监测"; extraButton.isHidden = false
-        } else if authorized {
-            extraButton.title = "停止 GPU 监测"; extraButton.isHidden = false
-        } else {
-            extraButton.isHidden = true
+        if kind == .gpu {
+            actionButtons.first?.title = gpuAuthorized ? "停止 GPU 监测" : "授权 GPU 监测"
         }
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -763,11 +779,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let panel = SysDetailPanel(kind: kind)
         panel.onAuthorizeGPU = { [weak self] in self?.authorizeGPU() }
         panel.onStopGPU = { [weak self] in self?.stopGPU() }
+        panel.onCleanJunk = { [weak self] in self?.cleanJunk() }
+        panel.onManageProcesses = { [weak self] in self?.openProcessManager() }
         panel.onClose = { [weak self] in self?.closeDetail() }
         detailPanel = panel
         if let w = window {
             let cx = w.frame.midX, cy = w.frame.midY
-            panel.setFrame(NSRect(x: cx - 230, y: cy - 170, width: 460, height: 340), display: true)
+            panel.setFrame(NSRect(x: cx - 230, y: cy - 180, width: 460, height: 360), display: true)
             w.addChildWindow(panel, ordered: .above)
         }
         panel.makeKeyAndOrderFront(nil)
@@ -781,10 +799,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     func updateDetailContent(_ kind: MetricKind) {
         guard let panel = detailPanel, panel.kind == kind else { return }
-        let (value, details, needsAuth) = detailData(for: kind)
-        panel.setValue(value, details: details, needsAuth: needsAuth, authorized: gpuAuthorized)
+        let (value, details) = detailData(for: kind)
+        panel.setValue(value, details: details, gpuAuthorized: gpuAuthorized)
     }
-    func detailData(for kind: MetricKind) -> (String, [String], Bool) {
+    func detailData(for kind: MetricKind) -> (String, [String]) {
         switch kind {
         case .cpu:
             let c = lastCPU
@@ -794,7 +812,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                  "系统态: \(String(format:"%.1f%%", c.system))",
                  "低优先级(nice): \(String(format:"%.1f%%", c.nice))",
                  "逻辑核心: \(sysMonitor.coreCount)   物理核心: \(sysMonitor.physicalCores)",
-                 "处理器: \(sysMonitor.cpuModel)"], false)
+                 "处理器: \(sysMonitor.cpuModel)"])
         case .ram:
             let m = lastMem
             let free = max(m.totalGB - m.usedGB, 0)
@@ -804,44 +822,73 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                  "总内存: \(String(format:"%.2f", m.totalGB)) GB",
                  "可用: \(String(format:"%.2f", free)) GB",
                  "线路内存(Wired): \(String(format:"%.2f", m.wiredGB)) GB",
-                 "已压缩: \(String(format:"%.2f", m.compressedGB)) GB"], false)
+                 "已压缩: \(String(format:"%.2f", m.compressedGB)) GB",
+                 "点击下方按钮可清理垃圾或打开进程管理"])
         case .net:
             let n = lastNet
             return (String(format: "↓%.1f ↑%.1f MB/s", n.downMBps, n.upMBps),
                 ["下行(接收): \(String(format:"%.2f", n.downMBps)) MB/s",
                  "上行(发送): \(String(format:"%.2f", n.upMBps)) MB/s",
-                 "网络接口: \(n.iface)"], false)
+                 "网络接口: \(n.iface)"])
         case .ssd:
             let s = lastSSD
             return (String(format: "%.1f MB/s", s),
                 ["读取+写入吞吐: \(String(format:"%.2f", s)) MB/s",
                  "说明: macOS 未公开单独读/写速率，此处为磁盘总吞吐(iostat)",
-                 "磁盘: disk0 (Apple SSD)"], false)
+                 "磁盘: disk0 (Apple SSD)"])
         case .gpu:
             if gpuAuthorized, let g = lastGPU {
                 return (String(format: "%.0f%%", g),
                     ["GPU 占用率: \(String(format:"%.0f%%", g))",
                      "数据来源: powermetrics (已授权管理员权限)",
-                     "说明: Apple Silicon 未提供公开 GPU 占用率 API，此为估算值"], false)
+                     "说明: Apple Silicon 未提供公开 GPU 占用率 API，此为估算值"])
+            }
+            if gpuAuthorized {
+                return ("采集中…",
+                    ["授权已生效，正在采集 GPU 占用率…",
+                     "首次采样需 1~2 秒，请稍候。"])
             }
             return ("需授权",
                 ["macOS (Apple Silicon) 未公开 GPU 占用率公共 API。",
                  "点击「授权 GPU 监测」后，将以管理员权限运行",
                  "powermetrics 实时采集 GPU 占用率(估算值)。",
-                 "授权仅需一次，数据将持续刷新。"], true)
+                 "授权仅需一次，数据将持续刷新。"])
         }
     }
     func authorizeGPU() {
-        let script = "do shell script \"powermetrics -s gpu -i 1000 -n 0 > /tmp/wb_gpu.log 2>&1 &\" with administrator privileges"
+        let script = "do shell script \"nohup powermetrics -s gpu -i 1000 -n 0 > /tmp/wb_gpu.log 2>&1 &\" with administrator privileges"
         var err: NSDictionary?
         NSAppleScript(source: script)?.executeAndReturnError(&err)
-        if err == nil { gpuAuthorized = true }
+        if err == nil {
+            gpuAuthorized = true
+            sysTiles[.gpu]?.update("…")
+            if let panel = detailPanel, panel.kind == .gpu { updateDetailContent(.gpu) }
+        } else {
+            let a = NSAlert(); a.messageText = "GPU 授权失败"; a.informativeText = "无法以管理员权限启动 powermetrics。"; a.runModal()
+        }
     }
     func stopGPU() {
         _ = runCmd("/usr/bin/pkill", ["-f", "powermetrics -s gpu"])
         gpuAuthorized = false
         try? FileManager.default.removeItem(atPath: "/tmp/wb_gpu.log")
         sysTiles[.gpu]?.update("需授权")
+        if let panel = detailPanel, panel.kind == .gpu { updateDetailContent(.gpu) }
+    }
+    func cleanJunk() {
+        let a = NSAlert()
+        a.messageText = "清理垃圾"
+        a.informativeText = "将清空废纸篓并刷新系统 DNS 缓存。是否继续？"
+        a.alertStyle = .warning
+        a.addButton(withTitle: "清理")
+        a.addButton(withTitle: "取消")
+        if a.runModal() == .alertFirstButtonReturn {
+            _ = runCmd("/usr/bin/osascript", ["-e", "tell application \"Finder\" to empty the trash"])
+            _ = runCmd("/usr/bin/dscacheutil", ["-flushcache"])
+            let done = NSAlert(); done.messageText = "已完成"; done.informativeText = "已清空废纸篓并刷新 DNS 缓存。"; done.runModal()
+        }
+    }
+    func openProcessManager() {
+        _ = runCmd("/usr/bin/open", ["-a", "Activity Monitor"])
     }
     func readGpuValue() -> Double? {
         guard let s = try? String(contentsOfFile: "/tmp/wb_gpu.log", encoding: .utf8), !s.isEmpty else { return nil }
