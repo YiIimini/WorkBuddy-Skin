@@ -191,15 +191,14 @@ class SysTile: NSView {
     let kind: MetricKind
     let titleLabel = NSTextField(labelWithString: "")
     let valueLabel = NSTextField(labelWithString: "—")
-    var button: NSButton!
     var onSelect: (MetricKind) -> Void = { _ in }
     init(kind: MetricKind, onSelect: @escaping (MetricKind) -> Void) {
         self.kind = kind; self.onSelect = onSelect
         super.init(frame: .zero)
         wantsLayer = true
-        layer?.backgroundColor = NSColor(srgbRed: 0.08, green: 0.05, blue: 0.12, alpha: 0.6).cgColor
+        layer?.backgroundColor = NSColor(srgbRed: 0.10, green: 0.06, blue: 0.15, alpha: 0.75).cgColor
         layer?.cornerRadius = 10; layer?.borderWidth = 1
-        layer?.borderColor = NSColor.accentPink.withAlphaComponent(0.15).cgColor
+        layer?.borderColor = NSColor.accentPink.withAlphaComponent(0.25).cgColor
         titleLabel.stringValue = kind.rawValue
         titleLabel.font = NSFont.systemFont(ofSize: 11, weight: .medium)
         titleLabel.textColor = .textHint; titleLabel.alignment = .center; titleLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -214,23 +213,12 @@ class SysTile: NSView {
             valueLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             heightAnchor.constraint(equalToConstant: 56)
         ])
-        button = NSButton(frame: .zero)
-        button.title = ""; button.bezelStyle = .shadowlessSquare; button.isBordered = false
-        button.target = self; button.action = #selector(clicked)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(button)
-        NSLayoutConstraint.activate([
-            button.topAnchor.constraint(equalTo: topAnchor),
-            button.bottomAnchor.constraint(equalTo: bottomAnchor),
-            button.leadingAnchor.constraint(equalTo: leadingAnchor),
-            button.trailingAnchor.constraint(equalTo: trailingAnchor)
-        ])
         let ta = NSTrackingArea(rect: .zero, options: [.inVisibleRect, .activeAlways, .mouseEnteredAndExited], owner: self, userInfo: nil)
         addTrackingArea(ta)
     }
-    @objc func clicked() { onSelect(kind) }
-    override func mouseEntered(with event: NSEvent) { anim(0.8) }
-    override func mouseExited(with event: NSEvent) { anim(0.15) }
+    override func mouseDown(with event: NSEvent) { onSelect(kind) }
+    override func mouseEntered(with event: NSEvent) { anim(0.8); NSCursor.pointingHand.push() }
+    override func mouseExited(with event: NSEvent) { anim(0.15); NSCursor.pop() }
     func anim(_ a: CGFloat) {
         NSAnimationContext.runAnimationGroup { ctx in ctx.duration = 0.15
             self.layer?.borderColor = NSColor.accentPink.withAlphaComponent(a).cgColor
