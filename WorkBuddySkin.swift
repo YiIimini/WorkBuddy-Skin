@@ -233,6 +233,7 @@ class SysDetailPanel: NSPanel {
     let valueLabel = NSTextField(labelWithString: "")
     let detailStack = NSStackView()
     var actionButtons: [NSButton] = []
+    var buttonRow: NSView?
     var fitted = false
     var onAuthorizeGPU: (() -> Void)?
     var onStopGPU: (() -> Void)?
@@ -271,7 +272,6 @@ class SysDetailPanel: NSPanel {
             b.translatesAutoresizingMaskIntoConstraints = false
             return b
         }
-        let buttonRow: NSView
         switch kind {
         case .gpu:
             let b = makeBtn("授权 GPU 监测", #selector(gpuClicked))
@@ -286,9 +286,8 @@ class SysDetailPanel: NSPanel {
             h.translatesAutoresizingMaskIntoConstraints = false
             buttonRow = h
         default:
-            buttonRow = NSView()
+            buttonRow = nil
         }
-        root.addSubview(buttonRow)
 
         let closeBtn = NSButton(title: "关闭", target: self, action: #selector(closeClicked))
         closeBtn.bezelStyle = .rounded
@@ -297,19 +296,25 @@ class SysDetailPanel: NSPanel {
         closeBtn.isHidden = true
         root.addSubview(closeBtn)
 
-        NSLayoutConstraint.activate([
+        var cons: [NSLayoutConstraint] = [
             valueLabel.topAnchor.constraint(equalTo: root.topAnchor, constant: 54),
             valueLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 20),
             valueLabel.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -20),
             detailStack.topAnchor.constraint(equalTo: valueLabel.bottomAnchor, constant: 18),
             detailStack.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 24),
             detailStack.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24),
-            buttonRow.topAnchor.constraint(equalTo: detailStack.bottomAnchor, constant: 18),
-            buttonRow.centerXAnchor.constraint(equalTo: root.centerXAnchor),
-            closeBtn.topAnchor.constraint(equalTo: buttonRow.bottomAnchor, constant: 16),
             closeBtn.centerXAnchor.constraint(equalTo: root.centerXAnchor),
             root.bottomAnchor.constraint(equalTo: closeBtn.bottomAnchor, constant: 16)
-        ])
+        ]
+        if let br = buttonRow {
+            root.addSubview(br)
+            cons.append(br.topAnchor.constraint(equalTo: detailStack.bottomAnchor, constant: 18))
+            cons.append(br.centerXAnchor.constraint(equalTo: root.centerXAnchor))
+            cons.append(closeBtn.topAnchor.constraint(equalTo: br.bottomAnchor, constant: 16))
+        } else {
+            cons.append(closeBtn.topAnchor.constraint(equalTo: detailStack.bottomAnchor, constant: 18))
+        }
+        NSLayoutConstraint.activate(cons)
     }
     override func close() { onClose?(); super.close() }
     @objc func gpuClicked() {
@@ -327,6 +332,7 @@ class SysDetailPanel: NSPanel {
             t.textColor = .textBody
             t.alignment = .center
             t.lineBreakMode = .byWordWrapping
+            t.maximumNumberOfLines = 0
             t.preferredMaxLayoutWidth = 412
             detailStack.addArrangedSubview(t)
         }
@@ -338,8 +344,13 @@ class SysDetailPanel: NSPanel {
             let w: CGFloat = 460
             self.setFrame(NSRect(x: self.frame.midX - w/2, y: self.frame.midY - 210, width: w, height: 420), display: true)
             self.layoutIfNeeded()
-            let cs = self.contentView?.fittingSize ?? NSSize(width: w, height: 300)
-            let h = max(220, ceil(cs.height))
+            let valueH = valueLabel.intrinsicContentSize.height
+            let detailH = detailStack.fittingSize.height
+            let hasBtn = (buttonRow != nil)
+            let btnH: CGFloat = hasBtn ? 34 : 0
+            let gapBtn: CGFloat = hasBtn ? 18 : 0
+            let contentH = 54 + valueH + 18 + detailH + gapBtn + btnH + 16 + 30 + 16
+            let h = max(220, ceil(contentH))
             let cx = self.frame.midX, cy = self.frame.midY
             self.setContentSize(NSSize(width: w, height: h))
             let nf = self.frame
