@@ -376,7 +376,8 @@ class JunkCleanerPanel: NSPanel {
     var sizeLabels: [NSTextField] = []
     let totalLabel = NSTextField(labelWithString: "共可清理：—")
     let list = NSStackView()
-    let scroll = NSScrollView()
+    let scanBtn = NSButton(title: "扫描垃圾", target: nil, action: nil)
+    var scanning = false
     var onClose: (() -> Void)?
 
     func expand(_ p: String) -> String {
@@ -407,15 +408,12 @@ class JunkCleanerPanel: NSPanel {
         totalLabel.font = .systemFont(ofSize: 12); totalLabel.textColor = .accentPink; totalLabel.alignment = .center
         totalLabel.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(totalLabel)
 
-        let scanBtn = NSButton(title: "扫描垃圾", target: self, action: #selector(scan))
+        scanBtn.target = self; scanBtn.action = #selector(scan)
         scanBtn.bezelStyle = .rounded; scanBtn.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(scanBtn)
 
         list.orientation = .vertical; list.spacing = 8; list.alignment = .leading
         list.translatesAutoresizingMaskIntoConstraints = false
-        scroll.documentView = list
-        scroll.hasVerticalScroller = true; scroll.autohidesScrollers = true
-        scroll.translatesAutoresizingMaskIntoConstraints = false
-        root.addSubview(scroll)
+        root.addSubview(list)
 
         for it in items {
             let row = NSStackView(); row.orientation = .horizontal; row.spacing = 10
@@ -450,10 +448,10 @@ class JunkCleanerPanel: NSPanel {
             totalLabel.centerYAnchor.constraint(equalTo: scanBtn.centerYAnchor),
             totalLabel.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16),
 
-            scroll.topAnchor.constraint(equalTo: scanBtn.bottomAnchor, constant: 12),
-            scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16),
-            scroll.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16),
-            scroll.bottomAnchor.constraint(equalTo: cleanBtn.topAnchor, constant: -12),
+            list.topAnchor.constraint(equalTo: scanBtn.bottomAnchor, constant: 12),
+            list.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16),
+            list.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16),
+            list.bottomAnchor.constraint(lessThanOrEqualTo: cleanBtn.topAnchor, constant: -12),
 
             cleanBtn.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -16),
             cleanBtn.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16),
@@ -462,21 +460,36 @@ class JunkCleanerPanel: NSPanel {
         ])
     }
     override func close() { onClose?(); super.close() }
-    @objc func closeClicked() { onClose?() }
+    @objc func closeClicked() { self.close() }
     @objc func scan() {
-        var total: Double = 0
-        for (i, it) in items.enumerated() {
-            guard let p = it.path else { sizeLabels[i].stringValue = "(点击清理时清空)"; continue }
-            let full = expand(p)
-            if let out = runCmd("/usr/bin/du", ["-sk", full]), let kb = Double(out.trimmingCharacters(in: .whitespaces).components(separatedBy: "\t").first ?? "") {
-                let bytes = kb * 1024
-                sizeLabels[i].stringValue = human(bytes)
-                total += bytes
-            } else {
-                sizeLabels[i].stringValue = "无法访问"
+        if scanning { return }
+        scanning = true
+        scanBtn.isEnabled = false
+        scanBtn.title = "扫描中…"
+        let paths = items.map { $0.path.map { expand($0) } }
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            var total: Double = 0
+            var results: [String] = []
+            for (i, _) in self.items.enumerated() {
+                guard let full = paths[i] else { results.append("(点击清理时清空)"); continue }
+                if let out = runCmd("/usr/bin/du", ["-sk", full]), let kb = Double(out.trimmingCharacters(in: .whitespaces).components(separatedBy: "\t").first ?? "") {
+                    let bytes = kb * 1024
+                    results.append(self.human(bytes))
+                    total += bytes
+                } else {
+                    results.append("无法访问")
+                }
+            }
+            let totalStr = self.human(total)
+            DispatchQueue.main.async {
+                for (i, r) in results.enumerated() { self.sizeLabels[i].stringValue = r }
+                self.totalLabel.stringValue = "共可清理：\(totalStr)"
+                self.scanning = false
+                self.scanBtn.isEnabled = true
+                self.scanBtn.title = "扫描垃圾"
             }
         }
-        totalLabel.stringValue = "共可清理：\(human(total))"
     }
     @objc func clean() {
         var targets: [JunkItem] = []
@@ -488,16 +501,23 @@ class JunkCleanerPanel: NSPanel {
         a.alertStyle = .warning
         a.addButton(withTitle: "清理"); a.addButton(withTitle: "取消")
         if a.runModal() != .alertFirstButtonReturn { return }
-        for it in targets {
-            if let p = it.path {
-                let full = expand(p)
-                _ = runCmd("/bin/sh", ["-c", "rm -rf \"\(full)\"/* 2>/dev/null; rm -rf \"\(full)\"/.[!.]* 2>/dev/null"])
-            } else {
-                _ = runCmd("/usr/bin/osascript", ["-e", "tell application \"Finder\" to empty the trash"])
+        scanBtn.isEnabled = false
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            for it in targets {
+                if let p = it.path {
+                    let full = self.expand(p)
+                    _ = runCmd("/bin/sh", ["-c", "rm -rf \"\(full)\"/* 2>/dev/null; rm -rf \"\(full)\"/.[!.]* 2>/dev/null"])
+                } else {
+                    _ = runCmd("/usr/bin/osascript", ["-e", "tell application \"Finder\" to empty the trash"])
+                }
+            }
+            DispatchQueue.main.async {
+                self.scanBtn.isEnabled = true
+                self.scan()
+                let done = NSAlert(); done.messageText = "清理完成"; done.informativeText = "已清理选中的系统垃圾。"; done.runModal()
             }
         }
-        scan()
-        let done = NSAlert(); done.messageText = "清理完成"; done.informativeText = "已清理选中的系统垃圾。"; done.runModal()
     }
 }
 
@@ -887,7 +907,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let t = Process(); t.launchPath = "/bin/bash"; t.arguments = ["\(NSHomeDirectory())/WorkBuddy-Skin/launcher.sh"]
             t.standardOutput = FileHandle.nullDevice; t.standardError = FileHandle.nullDevice; t.launch()
             var w = 0; while w < 30 { Thread.sleep(forTimeInterval: 1); w += 1; if self.checkPort(9222) { break } }
-            DispatchQueue.main.async { self.injectButton.isEnabled = true; self.injectButton.title = "CDP 注入启动"; self.refreshStatus() }
+            // 激活 WorkBuddy 窗口（spawn 二进制启动的进程不会自动前置，用户会以为"没反应"）
+            let act = Process(); act.launchPath = "/usr/bin/osascript"; act.arguments = ["-e", "tell application \"WorkBuddy\" to activate"]
+            act.standardOutput = FileHandle.nullDevice; act.standardError = FileHandle.nullDevice; act.launch()
+            DispatchQueue.main.async {
+                self.injectButton.isEnabled = true; self.injectButton.title = "CDP 注入启动"
+                self.stopButton.isEnabled = true; self.stopButton.title = "停止CDP注入"
+                self.refreshStatus()
+            }
         }
     }
     @objc func stopInjection() {
