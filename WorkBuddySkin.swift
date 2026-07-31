@@ -658,17 +658,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ], equalWidth: true)
         main.addArrangedSubview(qRow)
 
-        // 停止 CDP 注入（危险操作，独立成行）
-        let stopRow = hstack([
-            { stopButton = $0; return $0 }(makeBtn("停止CDP注入", "xmark.circle.fill", #selector(stopInjection)))
-        ], equalWidth: true)
-        main.addArrangedSubview(stopRow)
-
-        // 退出应用（独立成行）
-        let quitRow = hstack([
+        // 停止 CDP 注入 + 退出应用（横排）
+        let stopQuitRow = hstack([
+            { stopButton = $0; return $0 }(makeBtn("停止CDP注入", "xmark.circle.fill", #selector(stopInjection))),
             { quitButton = $0; return $0 }(makeBtn("退出应用", "power", #selector(quitApp)))
         ], equalWidth: true)
-        main.addArrangedSubview(quitRow)
+        main.addArrangedSubview(stopQuitRow)
 
         // ══ 状态监测 ══
         main.setCustomSpacing(20, after: qRow)
