@@ -257,10 +257,10 @@ function buildInjectScript() {
     '    rgba(var(--wb-bg-rgb),1) 100%);',
     '}',
 
-    // === 容器透明化（排除背景层/遮罩层，否则 JS inline 设置的遮罩色会被 !important 压掉）===
+    // === 容器透明化：:where() 降低优先级，方便后续用 class 规则覆盖，恢复 markdown/代码块背景 ===
     'html, body { background: transparent !important; }',
-    'div:not(#wb-bg-layer):not(#wb-bg-overlay):not([role="tooltip"]):not([class*="tooltip"]):not([role="dialog"]):not([role="menu"]):not([role="listbox"]):not([role="alertdialog"]):not(.monaco-menu):not([class*="bg-bg-card"]):not([class*="bg-card"]):not([class*="_card_"]):not([class*="agent-card"]):not([class*="conversation-agent-card"]):not([class*="bubble"]):not([class*="Bubble"]), section, main, article, nav, aside, ul, ol, li { background: transparent !important; }',
-    'span, p { background-color: transparent !important; }',
+    'body :where(div:not(.wb-bg-keep):not([role="tooltip"]):not([class*="tooltip"]):not([role="dialog"]):not([role="menu"]):not([role="listbox"]):not([role="alertdialog"]):not(.monaco-menu):not([class*="bg-bg-card"]):not([class*="bg-card"]):not([class*="_card_"]):not([class*="agent-card"]):not([class*="conversation-agent-card"]):not([class*="bubble"]):not([class*="Bubble"])), body :where(section), body :where(main), body :where(article), body :where(nav), body :where(aside), body :where(ul), body :where(ol), body :where(li) { background: transparent !important; }',
+    'body :where(span), body :where(p) { background-color: transparent !important; }',
 
     // === 文字颜色（使用 CSS 变量；排除 pre/code 子树，保留语法高亮 hljs 配色）===
     'body:not(pre *):not(code *), div:not(pre *):not(code *), span:not(pre *):not(code *), p:not(pre *):not(code *), a:not(pre *):not(code *), li:not(pre *):not(code *) { color: var(--wb-text) !important; text-shadow: 0 1px 2px rgba(var(--wb-bg-rgb),0.72); }',
@@ -283,6 +283,57 @@ function buildInjectScript() {
     '  overflow-x: auto !important;',
     '  text-overflow: clip !important;',
     '  scrollbar-width: thin;',
+    '}',
+
+    // === WorkBuddy 对话内容可读性：markdown 文本 + 代码块玻璃背板 ===
+    '.cb-markdown.cb-font-size-fixed {',
+    '  background: rgba(var(--wb-bg-rgb), 0.52) !important;',
+    '  backdrop-filter: blur(10px) saturate(1.2); -webkit-backdrop-filter: blur(10px) saturate(1.2);',
+    '  border-radius: 12px !important;',
+    '  padding: 12px 16px !important;',
+    '  margin: 6px 0 !important;',
+    '  border: 1px solid rgba(255,255,255,0.05) !important;',
+    '}',
+    '.cb-markdown, .cb-markdown * { text-shadow: none !important; }',
+    '.cb-markdown a { color: var(--wb-accent) !important; text-decoration: underline; }',
+    // 代码块外框
+    '.cb-markdown-pre-wrapper, .cb-markdown-pre-container {',
+    '  background: rgba(var(--wb-bg-rgb), 0.78) !important;',
+    '  border: 1px solid rgba(var(--wb-accent-rgb), 0.12) !important;',
+    '  border-radius: 12px !important;',
+    '  overflow: visible !important;',
+    '  margin: 10px 0 !important;',
+    '}',
+    '.cb-markdown-pre__header {',
+    '  background: rgba(var(--wb-bg-rgb), 0.88) !important;',
+    '  border-bottom: 1px solid rgba(255,255,255,0.06) !important;',
+    '  border-radius: 12px 12px 0 0 !important;',
+    '  padding: 6px 12px !important;',
+    '}',
+    '.cb-markdown-pre__title {',
+    '  overflow: visible !important;',
+    '  white-space: normal !important;',
+    '  color: var(--wb-text) !important;',
+    '}',
+    '.cb-markdown-pre {',
+    '  background: rgba(8, 12, 26, 0.88) !important;',
+    '  border-radius: 0 0 12px 12px !important;',
+    '  overflow-x: auto !important;',
+    '  white-space: pre !important;',
+    '  padding: 12px !important;',
+    '  text-shadow: none !important;',
+    '}',
+    '.cb-markdown-pre code.hljs {',
+    '  background: transparent !important;',
+    '  border: none !important;',
+    '  overflow-x: visible !important;',
+    '  white-space: pre !important;',
+    '}',
+    '.cb-markdown code:not(.hljs) {',
+    '  background: rgba(var(--wb-bg-rgb), 0.65) !important;',
+    '  padding: 2px 5px !important;',
+    '  border-radius: 5px !important;',
+    '  color: var(--wb-text) !important;',
     '}',
 
     // === 侧边栏：透明流体玻璃 ===
@@ -543,6 +594,7 @@ function buildInjectScript() {
     if (!layer) {
       layer = document.createElement('div');
       layer.id = 'wb-bg-layer';
+      layer.className = 'wb-bg-keep';
       layer.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:-2147483648;pointer-events:none;overflow:hidden;background:#000;';
       document.body.appendChild(layer);
     }
@@ -555,6 +607,7 @@ function buildInjectScript() {
     if (!ov) {
       ov = document.createElement('div');
       ov.id = 'wb-bg-overlay';
+      ov.className = 'wb-bg-keep';
       ov.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:0;pointer-events:none;';
       document.body.appendChild(ov);
     }
@@ -657,6 +710,7 @@ function buildInjectScript() {
     if (!el || !el.style) return;
     var skip = ['wb-bg-layer', 'wb-bg-overlay'];
     if (skip.indexOf(el.id) !== -1) return;
+    if (el.className && typeof el.className === 'string' && el.className.indexOf('wb-bg-keep') !== -1) return;
     if (el.hasAttribute && (el.hasAttribute('data-view-id') || el.hasAttribute('role'))) return;
     if (el.className && typeof el.className === 'string' &&
         (el.className.indexOf('modal') !== -1 || el.className.indexOf('monaco') !== -1 ||
