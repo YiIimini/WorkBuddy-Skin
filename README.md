@@ -1,4 +1,4 @@
-# WorkBuddy-Skin v1.0.1
+# WorkBuddy-Skin v1.1.0
 
 > 跨平台桌面美化工具，为 WorkBuddy 注入自定义背景与动效。零侵入，不修改 WorkBuddy 本体。
 
@@ -10,7 +10,7 @@
 
 ## 安装
 
-**macOS**：下载 [WorkBuddy-Skin-v1.0.1.dmg](https://github.com/YiIimini/WorkBuddy-Skin/releases/download/v1.0.1/WorkBuddy-Skin-v1.0.1.dmg)，将 WorkBuddy-Skin.app **拖入 DMG 窗口中的 Applications 文件夹**。首次运行需授权。
+**macOS**：下载 [WorkBuddy-Skin-v1.1.0.dmg](https://github.com/YiIimini/WorkBuddy-Skin/releases/download/v1.1.0/WorkBuddy-Skin-v1.1.0.dmg)，将 WorkBuddy-Skin.app **拖入 DMG 窗口中的 Applications 文件夹**。首次运行需授权。
 
 **Windows**：
 1. 安装 [Node.js 18+](https://nodejs.org)，克隆本仓库
@@ -29,6 +29,7 @@
 - **自动取色**：根据背景图片亮度自动匹配文字色 + 取色板手动选色
 - **实时调节**：透明度/遮罩/模糊/填充/位置，即时热更新
 - **菜单栏**：图标 + 快捷操作（注入/启用背景/状态/刷新/打开窗口 ⌘O）
+- **系统监测**：状态监测下新增 CPU / GPU / RAM / SSD / NET 五合一实时监测面板，点击任意卡片基于应用窗口正中弹出悬浮详情面板
 - **纯原生**：Swift + Cocoa 开发（macOS 管理器），无需 Electron
 
 ## 当前版本修复
@@ -36,6 +37,13 @@
 - **窗口关闭后无法重开**：实现 `applicationShouldHandleReopen` 处理 Dock 点击（原 `didBecomeActive` 方案在 app 已激活时不触发），并显式 `isReleasedWhenClosed = false`
 - **菜单栏点击闪退**：`currentConfig`（Swift Dictionary）原在后台线程读取、主线程写入，数据竞争导致崩溃；改为主线程快照 → 后台端口探测 → 主线程更新 UI
 - **菜单逻辑错误**：菜单栏"启用/停用背景"原错绑为切换文字自动配色，已修正
+
+## v1.1.0 更新
+
+- **系统监测模块**：在「状态监测」下方新增「系统监测」面板，包含 CPU（占用率）、GPU（占用率）、RAM（占用率）、SSD（读取+写入吞吐）、NET（上下行流量）五张卡片，每 2 秒刷新一次
+- **详情悬浮面板**：点击任意卡片，基于应用窗口正中弹出 `NSPanel` 子窗口，展示该指标的更详细数据（CPU 用户态/系统态/核心数/型号、内存已用/可用/线路内存/压缩、网络上下行/接口、磁盘吞吐、GPU 授权状态）
+- **GPU 占用率（可选授权）**：Apple Silicon 未公开 GPU 占用率公共 API，点击 GPU 卡片的「授权 GPU 监测」后将以管理员权限运行 `powermetrics` 实时采集估算值（仅需授权一次，可随时停止）
+- **指标来源**：CPU/RAM 通过 Mach 内核 API（`host_statistics64`）采集；SSD 吞吐来自 `iostat`；网络流量来自 `netstat`（主网络接口经 `route` 自动探测，本机为 `en5`）
 
 ## v1.0.1 更新
 

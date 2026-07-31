@@ -1,6 +1,7 @@
 import Cocoa
 import UniformTypeIdentifiers
 import AVFoundation
+import Darwin
 
 extension NSColor {
     static let bgDark = NSColor(srgbRed: 0.05, green: 0.03, blue: 0.08, alpha: 1.0)
@@ -47,6 +48,283 @@ class StatusCard: NSView {
     }
 }
 
+// MARK: - 系统监测模块
+
+enum MetricKind: String, CaseIterable {
+    case cpu = "CPU"; case gpu = "GPU"; case ram = "RAM"; case ssd = "SSD"; case net = "NET"
+}
+
+func runCmd(_ launchPath: String, _ args: [String]) -> String? {
+    let p = Process(); p.launchPath = launchPath; p.arguments = args
+    let pipe = Pipe(); p.standardOutput = pipe; p.standardError = pipe
+    p.launch(); p.waitUntilExit()
+    return String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)
+}
+
+class SystemMonitor {
+    private var cpuPrev: host_cpu_load_info?
+    private var netPrevIn: UInt64 = 0, netPrevOut: UInt64 = 0, netPrevT: TimeInterval = 0
+    private var netIface: String = "en0"
+    let cpuModel: String
+    let memTotalBytes: UInt64
+    let coreCount: Int
+    let physicalCores: Int
+
+    init() {
+        cpuModel = Self.sysctlStr("machdep.cpu.brand_string")
+        memTotalBytes = Self.sysctlU64("hw.memsize")
+        coreCount = Self.sysctlInt("hw.ncpu")
+        physicalCores = Self.sysctlInt("hw.physicalcpu")
+        netIface = Self.primaryInterface()
+    }
+
+    private static func sysctlStr(_ name: String) -> String {
+        var size = 0
+        sysctlbyname(name, nil, &size, nil, 0)
+        guard size > 0 else { return "" }
+        var buf = [CChar](repeating: 0, count: size)
+        sysctlbyname(name, &buf, &size, nil, 0)
+        return String(cString: buf)
+    }
+    private static func sysctlInt(_ name: String) -> Int {
+        var val: Int = 0; var size = MemoryLayout<Int>.size
+        sysctlbyname(name, &val, &size, nil, 0); return val
+    }
+    private static func sysctlU64(_ name: String) -> UInt64 {
+        var val: UInt64 = 0; var size = MemoryLayout<UInt64>.size
+        sysctlbyname(name, &val, &size, nil, 0); return val
+    }
+    private static func primaryInterface() -> String {
+        if let o = runCmd("/sbin/route", ["-n", "get", "default"]),
+           let r = o.range(of: "interface: ") {
+            let rest = o[r.upperBound...]
+            if let e = rest.firstIndex(of: "\n") {
+                return String(rest[..<e]).trimmingCharacters(in: .whitespaces)
+            }
+        }
+        return "en0"
+    }
+
+    func cpuUsage() -> (total: Double, user: Double, system: Double, nice: Double) {
+        var count = mach_msg_type_number_t(MemoryLayout<host_cpu_load_info>.size / MemoryLayout<integer_t>.size)
+        var info = host_cpu_load_info()
+        let ret = withUnsafeMutablePointer(to: &info) { p in
+            p.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { ptr in
+                host_statistics64(mach_host_self(), HOST_CPU_LOAD_INFO, ptr, &count)
+            }
+        }
+        guard ret == KERN_SUCCESS else { return (0,0,0,0) }
+        let u = Double(info.cpu_ticks.0), s = Double(info.cpu_ticks.1)
+        let i = Double(info.cpu_ticks.2), n = Double(info.cpu_ticks.3)
+        let tot = u + s + i + n
+        if let prev = cpuPrev {
+            let dTot = tot - Double(prev.cpu_ticks.0 + prev.cpu_ticks.1 + prev.cpu_ticks.2 + prev.cpu_ticks.3)
+            let dIdle = i - Double(prev.cpu_ticks.2)
+            cpuPrev = info
+            if dTot > 0 {
+                return ((dTot - dIdle)/dTot*100,
+                        (u - Double(prev.cpu_ticks.0))/dTot*100,
+                        (s - Double(prev.cpu_ticks.1))/dTot*100,
+                        (n - Double(prev.cpu_ticks.3))/dTot*100)
+            }
+            return (0,0,0,0)
+        }
+        cpuPrev = info
+        return (0,0,0,0)
+    }
+
+    func memUsage() -> (usedGB: Double, totalGB: Double, wiredGB: Double, compressedGB: Double) {
+        var count = mach_msg_type_number_t(MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size)
+        var info = vm_statistics64()
+        let ret = withUnsafeMutablePointer(to: &info) { p in
+            p.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { ptr in
+                host_statistics64(mach_host_self(), HOST_VM_INFO64, ptr, &count)
+            }
+        }
+        guard ret == KERN_SUCCESS else { return (0, Double(memTotalBytes)/1e9, 0, 0) }
+        let ps = Double(vm_kernel_page_size)
+        let totalPages = Double(memTotalBytes) / ps
+        // 已用 ≈ 总页数 − 空闲 − 投机(可回收)，与 Activity Monitor「内存已用」接近
+        let usedPages = totalPages - Double(info.free_count) - Double(info.speculative_count)
+        let wired = Double(info.wire_count) * ps
+        let compressed = Double(info.compressions) * ps
+        return (max(usedPages,0)*ps/1e9, Double(memTotalBytes)/1e9, wired/1e9, compressed/1e9)
+    }
+
+    func netSample() -> (upMBps: Double, downMBps: Double, iface: String) {
+        guard let o = runCmd("/usr/sbin/netstat", ["-ib", "-I", netIface, "-n"]) else { return (0,0,netIface) }
+        let lines = o.split(separator: "\n")
+        guard lines.count >= 2 else { return (0,0,netIface) }
+        let header = lines[0].split(separator: " ", omittingEmptySubsequences: true)
+        let dataLine = lines.first(where: { $0.contains("Link#") }) ?? lines[1]
+        let data = dataLine.split(separator: " ", omittingEmptySubsequences: true)
+        guard let iI = header.firstIndex(of: "Ibytes"), let iO = header.firstIndex(of: "Obytes"),
+              data.count > iI, data.count > iO,
+              let ib = UInt64(data[iI]), let ob = UInt64(data[iO]) else { return (0,0,netIface) }
+        let now = Date().timeIntervalSince1970
+        if netPrevT > 0 {
+            let dt = now - netPrevT
+            if dt > 0 {
+                let down = Double(ib &- netPrevIn)/dt/1e6
+                let up = Double(ob &- netPrevOut)/dt/1e6
+                netPrevIn = ib; netPrevOut = ob; netPrevT = now
+                return (max(up,0), max(down,0), netIface)
+            }
+        }
+        netPrevIn = ib; netPrevOut = ob; netPrevT = now
+        return (0,0,netIface)
+    }
+
+    func ssdThroughput() -> Double {
+        // -d: 仅磁盘统计; -c 2 -w 1: 连续 2 次、间隔 1 秒; 末行即最近 1 秒区间样本
+        guard let o = runCmd("/usr/sbin/iostat", ["-d", "-c", "2", "-w", "1", "disk0"]),
+              let lastRow = o.split(separator: "\n").last(where: { $0.trimmingCharacters(in: .whitespaces).first?.isNumber == true })
+        else { return 0 }
+        // 列: KB/t  tps  MB/s —— MB/s 在 index 2（读取+写入总吞吐）
+        let cols = lastRow.split(separator: " ", omittingEmptySubsequences: true)
+        if cols.count >= 3, let mbps = Double(cols[2]) { return mbps }
+        return 0
+    }
+}
+
+class SysTile: NSView {
+    let kind: MetricKind
+    let titleLabel = NSTextField(labelWithString: "")
+    let valueLabel = NSTextField(labelWithString: "—")
+    var button: NSButton!
+    var onSelect: (MetricKind) -> Void = { _ in }
+    init(kind: MetricKind, onSelect: @escaping (MetricKind) -> Void) {
+        self.kind = kind; self.onSelect = onSelect
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor(srgbRed: 0.08, green: 0.05, blue: 0.12, alpha: 0.6).cgColor
+        layer?.cornerRadius = 10; layer?.borderWidth = 1
+        layer?.borderColor = NSColor.accentPink.withAlphaComponent(0.15).cgColor
+        titleLabel.stringValue = kind.rawValue
+        titleLabel.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        titleLabel.textColor = .textHint; titleLabel.alignment = .center; titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(titleLabel)
+        valueLabel.font = NSFont.boldSystemFont(ofSize: 14)
+        valueLabel.textColor = .textBody; valueLabel.alignment = .center; valueLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(valueLabel)
+        NSLayoutConstraint.activate([
+            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+            titleLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
+            valueLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
+            valueLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
+            heightAnchor.constraint(equalToConstant: 56)
+        ])
+        button = NSButton(frame: .zero)
+        button.title = ""; button.bezelStyle = .shadowlessSquare; button.isBordered = false
+        button.target = self; button.action = #selector(clicked)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(button)
+        NSLayoutConstraint.activate([
+            button.topAnchor.constraint(equalTo: topAnchor),
+            button.bottomAnchor.constraint(equalTo: bottomAnchor),
+            button.leadingAnchor.constraint(equalTo: leadingAnchor),
+            button.trailingAnchor.constraint(equalTo: trailingAnchor)
+        ])
+        let ta = NSTrackingArea(rect: .zero, options: [.inVisibleRect, .activeAlways, .mouseEnteredAndExited], owner: self, userInfo: nil)
+        addTrackingArea(ta)
+    }
+    @objc func clicked() { onSelect(kind) }
+    override func mouseEntered(with event: NSEvent) { anim(0.8) }
+    override func mouseExited(with event: NSEvent) { anim(0.15) }
+    func anim(_ a: CGFloat) {
+        NSAnimationContext.runAnimationGroup { ctx in ctx.duration = 0.15
+            self.layer?.borderColor = NSColor.accentPink.withAlphaComponent(a).cgColor
+        }
+    }
+    func update(_ value: String) { DispatchQueue.main.async { self.valueLabel.stringValue = value } }
+    required init?(coder: NSCoder) { fatalError() }
+}
+
+class SysDetailPanel: NSPanel {
+    let kind: MetricKind
+    let valueLabel = NSTextField(labelWithString: "")
+    let detailStack = NSStackView()
+    let extraButton = NSButton()
+    var onAuthorizeGPU: (() -> Void)?
+    var onStopGPU: (() -> Void)?
+    var onClose: (() -> Void)?
+
+    init(kind: MetricKind) {
+        self.kind = kind
+        super.init(contentRect: NSRect(x: 0, y: 0, width: 460, height: 340), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        self.title = "系统监测 · \(kind.rawValue)"
+        self.appearance = NSAppearance(named: .darkAqua)
+        self.isMovableByWindowBackground = true
+        self.level = .floating
+        self.backgroundColor = NSColor(srgbRed: 0.10, green: 0.06, blue: 0.15, alpha: 0.97)
+        self.isReleasedWhenClosed = false
+
+        let root = NSView(); self.contentView = root
+
+        valueLabel.font = NSFont.boldSystemFont(ofSize: 30)
+        valueLabel.textColor = .accentPink
+        valueLabel.alignment = .center
+        valueLabel.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(valueLabel)
+
+        detailStack.orientation = .vertical
+        detailStack.spacing = 8
+        detailStack.alignment = .leading
+        detailStack.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(detailStack)
+
+        extraButton.bezelStyle = .rounded
+        extraButton.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+        extraButton.translatesAutoresizingMaskIntoConstraints = false
+        extraButton.target = self; extraButton.action = #selector(extraClicked)
+        root.addSubview(extraButton)
+
+        let closeBtn = NSButton(title: "关闭", target: self, action: #selector(closeClicked))
+        closeBtn.bezelStyle = .rounded
+        closeBtn.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(closeBtn)
+
+        NSLayoutConstraint.activate([
+            valueLabel.topAnchor.constraint(equalTo: root.topAnchor, constant: 56),
+            valueLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 20),
+            valueLabel.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -20),
+            detailStack.topAnchor.constraint(equalTo: valueLabel.bottomAnchor, constant: 18),
+            detailStack.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 24),
+            detailStack.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24),
+            extraButton.topAnchor.constraint(equalTo: detailStack.bottomAnchor, constant: 18),
+            extraButton.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 24),
+            closeBtn.topAnchor.constraint(equalTo: detailStack.bottomAnchor, constant: 18),
+            closeBtn.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24)
+        ])
+    }
+    override func close() { onClose?(); super.close() }
+    @objc func extraClicked() {
+        if extraButton.title.contains("授权") { onAuthorizeGPU?() }
+        else { onStopGPU?() }
+    }
+    @objc func closeClicked() { onClose?() }
+    func setValue(_ value: String, details: [String], needsAuth: Bool, authorized: Bool) {
+        valueLabel.stringValue = value
+        detailStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        for d in details {
+            let t = NSTextField(labelWithString: d)
+            t.font = NSFont.systemFont(ofSize: 12)
+            t.textColor = .textBody
+            t.lineBreakMode = .byWordWrapping
+            t.preferredMaxLayoutWidth = 412
+            detailStack.addArrangedSubview(t)
+        }
+        if needsAuth {
+            extraButton.title = "授权 GPU 监测"; extraButton.isHidden = false
+        } else if authorized {
+            extraButton.title = "停止 GPU 监测"; extraButton.isHidden = false
+        } else {
+            extraButton.isHidden = true
+        }
+    }
+    required init?(coder: NSCoder) { fatalError() }
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate {
     static weak var shared: AppDelegate?
 
@@ -65,6 +343,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let daemonURL = "http://localhost:17890"
     var currentConfig: [String: Any] = [:]
 
+    // 系统监测
+    let sysMonitor = SystemMonitor()
+    var sysTiles: [MetricKind: SysTile] = [:]
+    var detailPanel: SysDetailPanel?
+    var gpuAuthorized = false
+    var lastCPU: (total: Double, user: Double, system: Double, nice: Double) = (0,0,0,0)
+    var lastMem: (usedGB: Double, totalGB: Double, wiredGB: Double, compressedGB: Double) = (0,0,0,0)
+    var lastNet: (upMBps: Double, downMBps: Double, iface: String) = (0,0,"en0")
+    var lastSSD: Double = 0
+    var lastGPU: Double? = nil
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppDelegate.shared = self
         setupMenuBar(); createWindow(); startDaemonIfNeeded()
@@ -72,6 +361,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(self, selector: #selector(handleReopen), name: NSApplication.didBecomeActiveNotification, object: nil)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { self.refreshStatus(); self.loadConfig(); self.updateMenuStatus() }
         Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in self.refreshStatus(); self.updateMenuStatus() }
+        Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in self?.scheduleSysSample() }
+        scheduleSysSample()
     }
 
     @objc func handleReopen() {
@@ -91,7 +382,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func createWindow() {
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 760, height: 820), styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 760, height: 900), styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.title = "WorkBuddy-Skin"; window.titlebarAppearsTransparent = true; window.center()
         window.appearance = NSAppearance(named: .darkAqua)
         window.isMovableByWindowBackground = true
@@ -127,7 +418,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ])
 
         // ── 标题
-        let titleLabel = NSTextField(labelWithString: "WorkBuddy-Skin 背景注入管理器 v1.0.1")
+        let titleLabel = NSTextField(labelWithString: "WorkBuddy-Skin 背景注入管理器 v1.1.0")
         titleLabel.font = NSFont.boldSystemFont(ofSize: 22); titleLabel.textColor = .textTitle; titleLabel.alignment = .center
         main.addArrangedSubview(titleLabel)
         main.setCustomSpacing(24, after: titleLabel)
@@ -237,6 +528,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         daemonCard = StatusCard(title: "守护进程"); bgCard = StatusCard(title: "背景状态")
         let statusRow = hstack([wbCard, cdpCard, daemonCard, bgCard], equalWidth: true)
         main.addArrangedSubview(statusRow)
+
+        // ══ 系统监测 ══
+        main.setCustomSpacing(20, after: statusRow)
+        main.addArrangedSubview(sectionHeader("系统监测"))
+        let sysRow = NSStackView(); sysRow.spacing = 8; sysRow.distribution = .fillEqually
+        for k in [MetricKind.cpu, .gpu, .ram, .ssd, .net] {
+            let tile = SysTile(kind: k) { [weak self] kind in self?.openDetail(kind) }
+            sysTiles[k] = tile
+            sysRow.addArrangedSubview(tile)
+        }
+        main.addArrangedSubview(sysRow)
+        main.setCustomSpacing(16, after: sysRow)
 
         // ══ 页脚 ══
         main.setCustomSpacing(16, after: statusRow)
@@ -441,6 +744,132 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self.bgCard.update(bgActive ? "已启用" : "未启用", bgActive)
         }
     }
+
+    // ══ 系统监测 ══
+    func scheduleSysSample() {
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self = self else { return }
+            self.lastCPU = self.sysMonitor.cpuUsage()
+            self.lastMem = self.sysMonitor.memUsage()
+            self.lastNet = self.sysMonitor.netSample()
+            self.lastSSD = self.sysMonitor.ssdThroughput()
+            if self.gpuAuthorized { self.lastGPU = self.readGpuValue() } else { self.lastGPU = nil }
+            let cpuT = self.lastCPU.total
+            let memPct = self.lastMem.totalGB > 0 ? self.lastMem.usedGB/self.lastMem.totalGB*100 : 0
+            let net = self.lastNet, ssd = self.lastSSD
+            DispatchQueue.main.async {
+                self.sysTiles[.cpu]?.update(String(format: "%.0f%%", cpuT))
+                self.sysTiles[.ram]?.update(String(format: "%.0f%%", memPct))
+                self.sysTiles[.net]?.update(String(format: "↓%.1f ↑%.1f", net.downMBps, net.upMBps))
+                self.sysTiles[.ssd]?.update(String(format: "%.1f", ssd) + " MB/s")
+                if self.gpuAuthorized {
+                    if let g = self.lastGPU { self.sysTiles[.gpu]?.update(String(format: "%.0f%%", g)) }
+                    else { self.sysTiles[.gpu]?.update("…") }
+                } else { self.sysTiles[.gpu]?.update("需授权") }
+                if let panel = self.detailPanel { self.updateDetailContent(panel.kind) }
+            }
+        }
+    }
+    func openDetail(_ kind: MetricKind) {
+        if detailPanel != nil { closeDetail() }
+        let panel = SysDetailPanel(kind: kind)
+        panel.onAuthorizeGPU = { [weak self] in self?.authorizeGPU() }
+        panel.onStopGPU = { [weak self] in self?.stopGPU() }
+        panel.onClose = { [weak self] in self?.closeDetail() }
+        detailPanel = panel
+        if let w = window {
+            let cx = w.frame.midX, cy = w.frame.midY
+            panel.setFrame(NSRect(x: cx - 230, y: cy - 170, width: 460, height: 340), display: true)
+            w.addChildWindow(panel, ordered: .above)
+        }
+        panel.makeKeyAndOrderFront(nil)
+        updateDetailContent(kind)
+    }
+    func closeDetail() {
+        guard let p = detailPanel else { return }
+        detailPanel = nil
+        window?.removeChildWindow(p)
+        p.orderOut(nil)
+    }
+    func updateDetailContent(_ kind: MetricKind) {
+        guard let panel = detailPanel, panel.kind == kind else { return }
+        let (value, details, needsAuth) = detailData(for: kind)
+        panel.setValue(value, details: details, needsAuth: needsAuth, authorized: gpuAuthorized)
+    }
+    func detailData(for kind: MetricKind) -> (String, [String], Bool) {
+        switch kind {
+        case .cpu:
+            let c = lastCPU
+            return (String(format: "%.1f%%", c.total),
+                ["总占用率: \(String(format:"%.1f%%", c.total))",
+                 "用户态: \(String(format:"%.1f%%", c.user))",
+                 "系统态: \(String(format:"%.1f%%", c.system))",
+                 "低优先级(nice): \(String(format:"%.1f%%", c.nice))",
+                 "逻辑核心: \(sysMonitor.coreCount)   物理核心: \(sysMonitor.physicalCores)",
+                 "处理器: \(sysMonitor.cpuModel)"], false)
+        case .ram:
+            let m = lastMem
+            let free = max(m.totalGB - m.usedGB, 0)
+            let pct = m.totalGB > 0 ? m.usedGB/m.totalGB*100 : 0
+            return (String(format: "%.1f%%", pct),
+                ["已使用: \(String(format:"%.2f", m.usedGB)) GB",
+                 "总内存: \(String(format:"%.2f", m.totalGB)) GB",
+                 "可用: \(String(format:"%.2f", free)) GB",
+                 "线路内存(Wired): \(String(format:"%.2f", m.wiredGB)) GB",
+                 "已压缩: \(String(format:"%.2f", m.compressedGB)) GB"], false)
+        case .net:
+            let n = lastNet
+            return (String(format: "↓%.1f ↑%.1f MB/s", n.downMBps, n.upMBps),
+                ["下行(接收): \(String(format:"%.2f", n.downMBps)) MB/s",
+                 "上行(发送): \(String(format:"%.2f", n.upMBps)) MB/s",
+                 "网络接口: \(n.iface)"], false)
+        case .ssd:
+            let s = lastSSD
+            return (String(format: "%.1f MB/s", s),
+                ["读取+写入吞吐: \(String(format:"%.2f", s)) MB/s",
+                 "说明: macOS 未公开单独读/写速率，此处为磁盘总吞吐(iostat)",
+                 "磁盘: disk0 (Apple SSD)"], false)
+        case .gpu:
+            if gpuAuthorized, let g = lastGPU {
+                return (String(format: "%.0f%%", g),
+                    ["GPU 占用率: \(String(format:"%.0f%%", g))",
+                     "数据来源: powermetrics (已授权管理员权限)",
+                     "说明: Apple Silicon 未提供公开 GPU 占用率 API，此为估算值"], false)
+            }
+            return ("需授权",
+                ["macOS (Apple Silicon) 未公开 GPU 占用率公共 API。",
+                 "点击「授权 GPU 监测」后，将以管理员权限运行",
+                 "powermetrics 实时采集 GPU 占用率(估算值)。",
+                 "授权仅需一次，数据将持续刷新。"], true)
+        }
+    }
+    func authorizeGPU() {
+        let script = "do shell script \"powermetrics -s gpu -i 1000 -n 0 > /tmp/wb_gpu.log 2>&1 &\" with administrator privileges"
+        var err: NSDictionary?
+        NSAppleScript(source: script)?.executeAndReturnError(&err)
+        if err == nil { gpuAuthorized = true }
+    }
+    func stopGPU() {
+        _ = runCmd("/usr/bin/pkill", ["-f", "powermetrics -s gpu"])
+        gpuAuthorized = false
+        try? FileManager.default.removeItem(atPath: "/tmp/wb_gpu.log")
+        sysTiles[.gpu]?.update("需授权")
+    }
+    func readGpuValue() -> Double? {
+        guard let s = try? String(contentsOfFile: "/tmp/wb_gpu.log", encoding: .utf8), !s.isEmpty else { return nil }
+        let blocks = s.components(separatedBy: "====")
+        let block = blocks.last ?? s
+        func parsePercent(_ pattern: String) -> Double? {
+            guard let r = try? NSRegularExpression(pattern: pattern, options: []),
+                  let m = r.firstMatch(in: block, options: [], range: NSRange(location: 0, length: block.utf16.count)) else { return nil }
+            let ns = block as NSString
+            let num = ns.substring(with: m.range(at: 1))
+            return Double(num)
+        }
+        return parsePercent(#"GPU\s+(?:HW\s+)?Active[^%\n]*?(\d+(?:\.\d+)?)\s*%"#)
+            ?? parsePercent(#"GPU[^%\n]*?(\d+(?:\.\d+)?)\s*%"#)
+    }
+
     @objc func selectFile() {
         let p = NSOpenPanel(); p.allowsMultipleSelection = false; p.canChooseDirectories = false; p.canChooseFiles = true
         p.message = "选择背景图片或视频"; p.allowedContentTypes = [UTType.movie, UTType.video, UTType.image]

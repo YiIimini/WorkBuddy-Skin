@@ -1,10 +1,22 @@
-# WorkBuddy-Skin v1.0.1 Release Notes
+# WorkBuddy-Skin v1.1.0 Release Notes
 
 ## 发布日期
-2026-07-31
+2026-07-30
 
 ## 下载
-**DMG：** [WorkBuddy-Skin-v1.0.1.dmg](../../releases/download/v1.0.1/WorkBuddy-Skin-v1.0.1.dmg)
+**DMG：** [WorkBuddy-Skin-v1.1.0.dmg](../../releases/download/v1.1.0/WorkBuddy-Skin-v1.1.0.dmg)
+
+## v1.1.0 更新
+
+### 系统监测模块
+- 在「状态监测」下方新增「系统监测」面板：CPU（占用率）、GPU（占用率）、RAM（占用率）、SSD（读取+写入吞吐）、NET（上下行流量）五张卡片，每 2 秒刷新
+- 点击任意卡片，基于应用窗口正中弹出 `NSPanel` 子窗口悬浮详情面板（居中定位 + 半透明深色玻璃）
+- **GPU 占用率（可选授权）**：Apple Silicon 未公开 GPU 占用率公共 API；点击 GPU 卡片「授权 GPU 监测」后，以管理员权限运行 `powermetrics` 实时采集估算值（仅授权一次，可随时停止）
+- **指标来源**：CPU / RAM 经 Mach 内核 API（`host_statistics64` / `HOST_CPU_LOAD_INFO` / `HOST_VM_INFO64`）；SSD 吞吐来自 `iostat -d disk0`；网络流量来自 `netstat`，主网络接口经 `route -n get default` 自动探测（本机为 `en5`）
+- 已修正数据来源路径（`/usr/sbin/netstat`、`/sbin/route`）与 `iostat` 列解析（取末次 1 秒区间样本的 MB/s），确保各指标真实可读
+
+### 修复（终端/代码块显示）
+- 上一版 `47b86f0` 已修复 WorkBuddy 对话窗口内运行命令/终端内容显示不完整：根因是全局透明规则 `:not(#id)` 抬升了选择器特异性，导致代码块玻璃外框被强制透明、文字像浮在壁纸上；改用 `body :where(...)` 将特异性降为 0，并新增 `.cb-markdown` / `.cb-markdown-pre-*` 可读性规则
 
 ## v1.0.1 更新
 
