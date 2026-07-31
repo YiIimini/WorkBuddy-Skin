@@ -233,6 +233,7 @@ class SysDetailPanel: NSPanel {
     let valueLabel = NSTextField(labelWithString: "")
     let detailStack = NSStackView()
     var actionButtons: [NSButton] = []
+    var fitted = false
     var onAuthorizeGPU: (() -> Void)?
     var onStopGPU: (() -> Void)?
     var onCleanJunk: (() -> Void)?
@@ -320,6 +321,16 @@ class SysDetailPanel: NSPanel {
         }
         if kind == .gpu {
             actionButtons.first?.title = gpuAuthorized ? "停止 GPU 监测" : "授权 GPU 监测"
+        }
+        if !fitted {
+            fitted = true
+            self.layoutIfNeeded()
+            var bottom = detailStack.frame.maxY
+            if !actionButtons.isEmpty { bottom += 18 + 34 }
+            bottom += 24
+            let h = max(220, ceil(bottom))
+            let cx = self.frame.midX, cy = self.frame.midY
+            self.setFrame(NSRect(x: cx - self.frame.width/2, y: cy - h/2, width: self.frame.width, height: h), display: true)
         }
     }
     required init?(coder: NSCoder) { fatalError() }
