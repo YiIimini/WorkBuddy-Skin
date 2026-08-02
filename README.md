@@ -84,12 +84,12 @@ WorkBuddy (Electron)                 ← 目标应用
 如果 WorkBuddy-Skin 让你的 WorkBuddy 更好看了，欢迎请开发者喝杯咖啡 ☕
 
 <p align="center">
-  <a href="https://github.com/YiIimini/fluidmusic/blob/main/public/ds/wechat-pay.jpg">
-    <img src="https://github.com/YiIimini/fluidmusic/raw/main/public/ds/wechat-pay.jpg" width="180" alt="微信赞赏" />
+  <a href="https://github.com/YiIimini/fluidmusic/blob/master/public/ds/alipay.png">
+    <img src="https://github.com/YiIimini/fluidmusic/raw/master/public/ds/alipay.png" width="180" alt="微信赞赏" />
   </a>
   &nbsp;&nbsp;&nbsp;
-  <a href="https://github.com/YiIimini/fluidmusic/blob/main/public/ds/alipay.png">
-    <img src="https://github.com/YiIimini/fluidmusic/raw/main/public/ds/alipay.png" width="180" alt="支付宝" />
+  <a href="https://github.com/YiIimini/fluidmusic/blob/master/public/ds/wechat-pay.jpg">
+    <img src="https://github.com/YiIimini/fluidmusic/raw/master/public/ds/wechat-pay.jpg" width="180" alt="支付宝" />
   </a>
 </p>
 <p align="center">微信赞赏 &nbsp;·&nbsp; 支付宝</p>
