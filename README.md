@@ -70,15 +70,6 @@ WorkBuddy (Electron)                 ← 目标应用
 - WorkBuddy 已安装
 - macOS 首次运行需授予辅助功能权限
 
-## 社交媒体
-
-<p align="center">
-  <a href="https://github.com/YiIimini/fluidmusic/raw/main/public/xc/dy.png">
-    <img src="https://github.com/YiIimini/fluidmusic/raw/main/public/xc/dy.png" width="160" alt="抖音" />
-  </a>
-</p>
-<p align="center">抖音 · 开发者动态 & 更新预告</p>
-
 ## 打赏支持
 
 如果 WorkBuddy-Skin 让你的 WorkBuddy 更好看了，欢迎请开发者喝杯咖啡 ☕
